@@ -32,12 +32,43 @@ async function api(body = null) {
 
 async function refresh() {
   try {
-    state = await api();
+    const nextState = await api();
+    const changed = JSON.stringify(nextState) !== JSON.stringify(state);
+    state = nextState;
     lastError = "";
-    render();
+    if (changed) render();
   } catch (error) {
-    lastError = error.message;
-    render();
+    const message = error.message;
+    const changed = message !== lastError;
+    lastError = message;
+    if (changed || !state) render();
+  }
+}
+
+function captureInputState() {
+  const el = document.activeElement;
+  if (!el || !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return null;
+  return {
+    id: el.id || "",
+    name: el.name || "",
+    value: el.value,
+    selectionStart: el.selectionStart,
+    selectionEnd: el.selectionEnd
+  };
+}
+
+function restoreInputState(saved) {
+  if (!saved) return;
+  const candidates = [...document.querySelectorAll("input, textarea")];
+  const el = candidates.find(candidate =>
+    (saved.id && candidate.id === saved.id) ||
+    (saved.name && candidate.name === saved.name)
+  );
+  if (!el) return;
+  el.value = saved.value;
+  el.focus({ preventScroll: true });
+  if (typeof saved.selectionStart === "number" && typeof el.setSelectionRange === "function") {
+    try { el.setSelectionRange(saved.selectionStart, saved.selectionEnd ?? saved.selectionStart); } catch {}
   }
 }
 
@@ -105,8 +136,10 @@ function hostPanel() {
 }
 
 function render() {
+  const inputState = captureInputState();
   if (!state) {
     app.innerHTML = `<main><header><div><div class="eyebrow">NO TWITCH NEEDED</div><h1>Password<br>Battle Royale</h1></div></header><div class="card"><p>${lastError ? esc(lastError) : "Loading game…"}</p></div></main>`;
+    restoreInputState(inputState);
     return;
   }
   const meta = state.meta;
@@ -130,6 +163,7 @@ function render() {
   </main>`;
 
   bindEvents();
+  restoreInputState(inputState);
 }
 
 function bindEvents() {
