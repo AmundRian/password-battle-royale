@@ -29,6 +29,24 @@ function duplicateKey(value) {
     .toLocaleLowerCase("nb-NO");
 }
 
+function passwordLength(value) {
+  return value == null ? null : [...String(value)].length;
+}
+
+function shortestPasswordWinners(players) {
+  const eligible = players
+    .filter(p => p.alive && p.submission)
+    .map(p => ({ name: p.name, length: passwordLength(p.submission) }));
+
+  if (!eligible.length) return { winners: [], length: null };
+
+  const shortest = Math.min(...eligible.map(p => p.length));
+  return {
+    winners: eligible.filter(p => p.length === shortest).map(p => p.name),
+    length: shortest
+  };
+}
+
 const FAILURE_LABELS = new Map([
   ["Passordet må inneholde fornavnet på en gjest i bryllupet.", "Regel 1"],
   ["Passordet må inneholde minst én stor bokstav og ett tall.", "Regel 2.1"],
@@ -82,7 +100,8 @@ function publicState(meta, players) {
       submitted: result.submitted,
       eliminated: result.eliminated,
       remaining: result.remaining,
-      failureCounts: result.failureCounts || []
+      failureCounts: result.failureCounts || [],
+      shortestPasswordLength: result.shortestPasswordLength ?? null
     })),
     players: players
       .map(p => ({
@@ -107,14 +126,41 @@ function makeRoundResult(round, playersAtStart, finalPlayers) {
       id: p.id,
       name: p.name,
       password: p.submission || null,
+      passwordLength: passwordLength(p.submission),
       submitted: Boolean(p.submission),
+      submittedAt: p.submittedAt ?? null,
       survived: Boolean(p.alive),
       failures: (p.failureDetails || []).map(item => ({
         rule: item.rule,
         text: item.text
       }))
     };
-  });
+  })
+    .sort((a, b) => {
+      if (a.submitted !== b.submitted) return Number(b.submitted) - Number(a.submitted);
+      if (!a.submitted) return a.name.localeCompare(b.name, "nb");
+      return a.passwordLength - b.passwordLength
+        || (a.submittedAt || 0) - (b.submittedAt || 0)
+        || a.name.localeCompare(b.name, "nb");
+    });
+
+  let previousLength = null;
+  let previousRank = 0;
+  let submittedIndex = 0;
+  for (const p of resultPlayers) {
+    if (!p.submitted) {
+      p.rank = null;
+      continue;
+    }
+    submittedIndex += 1;
+    if (p.passwordLength !== previousLength) {
+      previousRank = submittedIndex;
+      previousLength = p.passwordLength;
+    }
+    p.rank = previousRank;
+  }
+
+  for (const p of resultPlayers) delete p.submittedAt;
 
   const counts = new Map();
   for (const p of resultPlayers) {
@@ -137,6 +183,7 @@ function makeRoundResult(round, playersAtStart, finalPlayers) {
     eliminated: resultPlayers.filter(p => !p.survived).length,
     remaining: finalPlayers.filter(p => p.alive).length,
     failureCounts,
+    shortestPasswordLength: resultPlayers.find(p => p.submitted)?.passwordLength ?? null,
     players: resultPlayers,
     closedAt: Date.now()
   };
@@ -236,6 +283,7 @@ export default async function handler(req, res) {
         deadline: Date.now() + meta.roundSeconds * 1000,
         winner: null,
         winners: [],
+        winningPasswordLength: null,
         lastRound: null,
         roundHistory: []
       }, redis);
@@ -300,13 +348,26 @@ export default async function handler(req, res) {
       const roundResult = makeRoundResult(meta.round, playersAtStart, after);
       const roundHistory = [...(meta.roundHistory || []), roundResult];
 
-      if (survivors.length <= 1) {
+      if (meta.round >= RULES.length) {
+        const finalRanking = shortestPasswordWinners(survivors);
         meta = await setMeta({
           ...meta,
           status: "game_over",
           deadline: null,
-          winner: survivors[0]?.name || null,
-          winners: survivors.map(p => p.name),
+          winner: finalRanking.winners[0] || null,
+          winners: finalRanking.winners,
+          winningPasswordLength: finalRanking.length,
+          lastRound: roundResult,
+          roundHistory
+        }, redis);
+      } else if (survivors.length === 0) {
+        meta = await setMeta({
+          ...meta,
+          status: "game_over",
+          deadline: null,
+          winner: null,
+          winners: [],
+          winningPasswordLength: null,
           lastRound: roundResult,
           roundHistory
         }, redis);
@@ -325,20 +386,14 @@ export default async function handler(req, res) {
       const players = await getPlayers(redis);
       const survivors = players.filter(p => p.alive);
 
-      if (survivors.length <= 1) {
+      if (survivors.length === 0 || meta.round >= RULES.length) {
+        const finalRanking = shortestPasswordWinners(survivors);
         meta = await setMeta({
           ...meta,
           status: "game_over",
-          winner: survivors[0]?.name || null,
-          winners: survivors.map(p => p.name),
-          deadline: null
-        }, redis);
-      } else if (meta.round >= RULES.length) {
-        meta = await setMeta({
-          ...meta,
-          status: "game_over",
-          winner: survivors.length === 1 ? survivors[0].name : null,
-          winners: survivors.map(p => p.name),
+          winner: finalRanking.winners[0] || null,
+          winners: finalRanking.winners,
+          winningPasswordLength: finalRanking.length,
           deadline: null
         }, redis);
       } else {
