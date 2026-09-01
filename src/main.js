@@ -165,6 +165,31 @@ function currentRoundSelfResult() {
   return state.roundResults.players.find(p => p.id === self.id) || null;
 }
 
+function rankedResultPlayers(players = []) {
+  const ranked = players.map(p => ({
+    ...p,
+    passwordLength: p.passwordLength ?? (p.password ? [...String(p.password)].length : null)
+  })).sort((a, b) => {
+    if (a.submitted !== b.submitted) return Number(b.submitted) - Number(a.submitted);
+    if (!a.submitted) return a.name.localeCompare(b.name, "nb");
+    return a.passwordLength - b.passwordLength || a.name.localeCompare(b.name, "nb");
+  });
+
+  let previousLength = null;
+  let previousRank = 0;
+  let submittedIndex = 0;
+
+  return ranked.map(p => {
+    if (!p.submitted) return { ...p, displayRank: null };
+    submittedIndex += 1;
+    if (p.passwordLength !== previousLength) {
+      previousRank = submittedIndex;
+      previousLength = p.passwordLength;
+    }
+    return { ...p, displayRank: p.rank ?? previousRank };
+  });
+}
+
 function playerPanel() {
   const self = selfState();
   const status = state?.meta?.status;
@@ -262,9 +287,18 @@ function playerPanel() {
     const result = currentRoundSelfResult();
 
     if (won) {
+      const winningLength = state.meta.winningPasswordLength;
       return `<div class="card winner">
-        <h2>🏆 You won!</h2>
-        <p>You survived the Password Battle Royale.</p>
+        <h2>🏆 Du vant!</h2>
+        <p>Du kom gjennom alle reglene${winningLength ? ` med et vinnende passord på <strong>${winningLength} tegn</strong>` : ""}.</p>
+      </div>`;
+    }
+
+    if (self.alive && state.meta.round >= state.totalRules) {
+      const winningLength = state.meta.winningPasswordLength;
+      return `<div class="card">
+        <h2>Du fullførte alle rundene!</h2>
+        <p>${winningLength ? `Vinneren hadde det korteste gyldige passordet på <strong>${winningLength} tegn</strong>.` : "Spillet er ferdig."}</p>
       </div>`;
     }
 
@@ -288,19 +322,30 @@ function roundResultsHtml() {
   const result = state?.roundResults;
   if (!result) return "";
 
+  const rankedPlayers = rankedResultPlayers(result.players || []);
+  const finalRound = result.round >= state.totalRules && state.meta.status === "game_over";
+  const winners = new Set(state.meta.winners || []);
+
   return `<div class="card">
     <div class="card-title">
-      <h2>Svar fra runde ${result.round}</h2>
+      <h2>Passordrangering · runde ${result.round}</h2>
       <span>${result.remaining} videre</span>
     </div>
 
-    <p class="muted tiny">Passordene vises først etter at runden er avsluttet.</p>
+    <p class="muted tiny">Rangert fra korteste til lengste passord. Passordene vises først etter at runden er avsluttet.</p>
 
     <div class="players">
-      ${result.players.map(p => `
-        <div class="player ${p.survived ? "alive" : "dead"}" style="align-items:flex-start;">
-          <div class="player-main" style="gap:4px;">
-            <strong>${esc(p.name)}</strong>
+      ${rankedPlayers.map(p => {
+        const isWinner = finalRound && winners.has(p.name);
+        const rankText = p.displayRank ? `#${p.displayRank}` : "—";
+        const lengthText = p.passwordLength != null ? `${p.passwordLength} tegn` : "Ingen innsending";
+        const resultText = isWinner ? "🏆 Vinner" : (p.survived ? (finalRound ? "✓ Fullførte" : "✓ Videre") : "✕ Ute");
+        const resultColor = isWinner || p.survived ? "#aaf1bd" : "#ffc1d0";
+
+        return `<div class="player ${p.survived ? "alive" : "dead"}" style="align-items:flex-start;">
+          <div style="min-width:44px;font-weight:800;font-size:1.05rem;">${rankText}</div>
+          <div class="player-main" style="gap:4px;min-width:0;">
+            <strong>${esc(p.name)} <small style="font-weight:600;">· ${esc(lengthText)}</small></strong>
             <small class="mono" style="white-space:normal;overflow-wrap:anywhere;color:#d8dcef;">
               ${p.password ? esc(p.password) : "Ingen innsending"}
             </small>
@@ -310,12 +355,14 @@ function roundResultsHtml() {
                 </small>`
               : ""}
           </div>
-          <strong style="white-space:nowrap;color:${p.survived ? "#aaf1bd" : "#ffc1d0"};">
-            ${p.survived ? "✓ Videre" : "✕ Ute"}
-          </strong>
-        </div>
-      `).join("")}
+          <strong style="white-space:nowrap;color:${resultColor};">${resultText}</strong>
+        </div>`;
+      }).join("")}
     </div>
+
+    ${finalRound && state.meta.winningPasswordLength != null
+      ? `<p class="muted tiny"><strong>Vinnerkriterium:</strong> Blant deltakerne som bestod regel 10, vinner korteste passord. Ved lik lengde blir det delt seier.</p>`
+      : ""}
   </div>`;
 }
 
@@ -367,7 +414,8 @@ function hostStatsHtml() {
         ["Spillere ved start", result.started],
         ["Leverte passord", result.submitted],
         ["Eliminert", result.eliminated],
-        ["Videre", result.remaining]
+        ["Videre", result.remaining],
+        ["Korteste innsendte passord", result.shortestPasswordLength != null ? `${result.shortestPasswordLength} tegn` : "—"]
       ])}
 
       <div style="height:14px;"></div>
@@ -418,7 +466,7 @@ function hostStatsHtml() {
           <div class="player">
             <div class="player-main">
               <strong>Runde ${r.round}</strong>
-              <small>${r.eliminated} eliminert · ${r.remaining} videre</small>
+              <small>${r.eliminated} eliminert · ${r.remaining} videre${r.shortestPasswordLength != null ? ` · kortest ${r.shortestPasswordLength} tegn` : ""}</small>
             </div>
             <strong>${r.submitted}/${r.started}</strong>
           </div>
@@ -496,8 +544,8 @@ function render() {
 
   const winnerText = meta.status === "game_over"
     ? ((meta.winners || []).length
-      ? `Winner${meta.winners.length > 1 ? "s" : ""}: ${meta.winners.map(esc).join(", ")}`
-      : "No winner")
+      ? `Vinner${meta.winners.length > 1 ? "e" : ""}: ${meta.winners.map(esc).join(", ")}${meta.winningPasswordLength != null ? ` · ${meta.winningPasswordLength} tegn` : ""}`
+      : "Ingen vinner")
     : null;
 
   app.innerHTML = `<main>
