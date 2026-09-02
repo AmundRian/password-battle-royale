@@ -286,20 +286,27 @@ function walterFeedState() {
   return { self, count };
 }
 
-function walterRuleMediaHtml() {
-  if (hostMode) {
-    return `<div class="walter-rule-static"><img src="${walterImage}" alt="Walter" draggable="false"></div>`;
-  }
-
+// Runde 8 bruker den kompakte Walter-presentasjonen fra den første Walter-versjonen.
+// Fra og med runde 9 flyttes Walter til høyre for passordfeltet.
+function walterRoundEightPanelHtml() {
+  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 8) return "";
   const { self, count } = walterFeedState();
-  const canFeed = state?.meta?.status === "round_open" && state?.meta?.round === 8 && self?.alive;
-  const status = count > 0 ? `Walter er matet ${walterBonesHtml(count)}` : "";
+  if (!self?.alive) return "";
 
-  return `<div class="walter-interaction walter-rule-interaction ${count > 0 ? "fed" : "hungry"}">
-    <button ${canFeed ? 'id="feed-walter"' : ""} class="walter-rule-button" type="button" aria-label="Mat Walter" ${canFeed ? "" : "disabled"}>
+  const status = count > 0
+    ? `Walter er matet ${walterBonesHtml(count)}`
+    : "Walter er sulten — trykk på ham før du leverer passordet.";
+
+  return `<div class="walter-feed-card ${count > 0 ? "fed" : "hungry"}">
+    <div class="walter-feed-copy">
+      <div class="eyebrow">REGEL 8 · MAT WALTER</div>
+      <h2>Husk Walter 🐶</h2>
+      <p>Trykk på Walter minst én gang før du leverer passordet. Du kan mate ham flere ganger hvis du vil.</p>
+    </div>
+    <button id="feed-walter" class="walter-feed-button" type="button" aria-label="Mat Walter">
       <img src="${walterImage}" alt="Walter" draggable="false">
     </button>
-    <div id="walter-feed-status" class="walter-feed-status" aria-live="polite" ${status ? "" : "hidden"}>${status}</div>
+    <div id="walter-feed-status" class="walter-feed-status" aria-live="polite">${status}</div>
   </div>`;
 }
 
@@ -321,12 +328,11 @@ function rulesHtml() {
   const rules = state?.rules || [];
   if (!rules.length) return `<p class="muted">Rules appear when the host starts the game.</p>`;
 
-  // Fra runde 9 er Walter en vedvarende handling ved passordfeltet, ikke et gammelt
-  // regelkort nederst i listen. Vi beholder det opprinnelige regelnummeret på de
-  // øvrige reglene, slik at nyeste regel alltid står nederst med riktig nummer.
+  // Alle aktive regler vises i naturlig rekkefølge. Walter-regelen forblir synlig
+  // som regel 8 også fra runde 9, mens selve Walter-bildet flyttes til passordfeltet.
+  // Dermed står den nyeste regelen alltid nederst: 1, 2, 3 ... gjeldende runde.
   const visibleRules = rules
-    .map((rule, index) => ({ rule, number: index + 1 }))
-    .filter(({ rule }) => !(rule.id === "walter" && (state?.meta?.round || 0) >= 9));
+    .map((rule, index) => ({ rule, number: index + 1 }));
 
   return `<ol class="rules">
     ${visibleRules.map(({ rule: r, number }) => {
@@ -338,10 +344,8 @@ function rulesHtml() {
         : "";
       const media = r.id === "animals"
         ? animalRuleImagesHtml()
-        : (r.id === "meeting_year"
-          ? meetingRuleImagesHtml()
-          : (r.id === "walter" && (state?.meta?.round || 0) === 8 ? walterRuleMediaHtml() : ""));
-      const withMedia = r.id === "animals" || r.id === "meeting_year" || (r.id === "walter" && (state?.meta?.round || 0) === 8);
+        : (r.id === "meeting_year" ? meetingRuleImagesHtml() : "");
+      const withMedia = r.id === "animals" || r.id === "meeting_year";
       return `<li class="${withMedia ? "rule-with-images" : ""}"><span>${number}</span><div>${esc(r.text)}${media}${hint}</div></li>`;
     }).join("")}
   </ol>`;
@@ -451,7 +455,7 @@ function playerPanel() {
     const time = secondsLeft();
     const previousPassword = player?.lastPassword || "";
 
-    return `<div class="card accent">
+    return `${walterRoundEightPanelHtml()}<div class="card accent">
       <div class="submit-head">
         <h2>Submit your password</h2>
         <div id="countdown" class="countdown">${time ?? "—"}s</div>
@@ -914,7 +918,7 @@ function bindEvents() {
         self.walterFeedCount = data.walterFeedCount;
       }
 
-      const card = button.closest(".walter-interaction");
+      const card = button.closest(".walter-interaction, .walter-feed-card");
       const image = button.querySelector("img");
       const status = card?.querySelector("#walter-feed-status");
       card?.classList.remove("hungry");
