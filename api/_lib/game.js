@@ -1405,7 +1405,7 @@ export const RULES = [
   },
   {
     id: "walter",
-    text: "Du må huske å mate Walter minst én gang hver runde. Trykk på Walter før du leverer passordet ditt. Glemmer du det, blir ikke passordet godkjent."
+    text: "Fra og med denne runden må du mate Walter minst én gang i HVER runde før du sender inn passordet ditt. Trykk på Walter for å mate ham. Glemmer du å mate Walter i en senere runde, blir passordet ditt ikke godkjent."
   },
   {
     id: "song",
@@ -1421,7 +1421,7 @@ export const RULES = [
   },
   {
     id: "digit_sum_even",
-    text: "Summen av alle tallene i passordet ditt må være et partall."
+    text: "Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11."
   },
   {
     id: "r_count",
@@ -1611,7 +1611,7 @@ export function validatePassword(password, round, options = {}) {
   }
 
   if (maxRound >= 12 && !digitSumIsEven(p)) {
-    failures.push("Summen av alle tallene i passordet må være et partall.");
+    failures.push("Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.");
   }
 
   if (maxRound >= 13 && !rCountMatchesEnding(p)) {
