@@ -550,3 +550,37 @@ body.player-theme-marie::before {
   .walter-inline-button img.walter-jump { animation:none; transform:scale(1.08); }
 }
 
+
+
+/* Walter rule 8 compact fix: same visual size as the round 9+ Walter beside the password field. */
+.rules li .walter-rule8-compact {
+  width:160px;
+  margin-top:10px;
+  justify-self:start;
+  align-self:start;
+}
+.rules li .walter-rule8-compact .walter-inline-button {
+  width:160px;
+  min-height:145px;
+}
+.rules li .walter-rule8-compact .walter-inline-button img {
+  width:auto;
+  height:170px;
+  max-width:150px;
+}
+.rules li .walter-rule8-compact .walter-inline-status {
+  width:160px;
+}
+@media (max-width:760px) {
+  .rules li .walter-rule8-compact { width:125px; }
+  .rules li .walter-rule8-compact .walter-inline-button { width:125px; min-height:116px; }
+  .rules li .walter-rule8-compact .walter-inline-button img { height:138px; max-width:120px; }
+  .rules li .walter-rule8-compact .walter-inline-status { width:125px; }
+}
+@media (max-width:420px) {
+  .rules li .walter-rule8-compact,
+  .rules li .walter-rule8-compact .walter-inline-button,
+  .rules li .walter-rule8-compact .walter-inline-status { width:104px; }
+  .rules li .walter-rule8-compact .walter-inline-button { min-height:100px; }
+  .rules li .walter-rule8-compact .walter-inline-button img { height:118px; max-width:100px; }
+}
