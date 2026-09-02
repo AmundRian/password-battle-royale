@@ -360,3 +360,99 @@ body.player-theme-marie::before {
 @media (max-width:520px) {
   .meeting-rule-gallery { gap:7px; }
 }
+
+/* Walter feeding rule */
+.walter-feed-card {
+  margin-bottom:18px;
+  padding:18px;
+  border:1px solid #3b425b;
+  border-radius:16px;
+  background:
+    radial-gradient(circle at 78% 24%, rgba(185,126,72,.16), transparent 16rem),
+    linear-gradient(145deg, #151927, #0e111c);
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(180px, 280px);
+  gap:18px;
+  align-items:center;
+  overflow:hidden;
+}
+.walter-feed-card.fed {
+  border-color:#9b7a3a;
+  box-shadow:inset 0 0 0 1px rgba(255,220,139,.08);
+}
+.walter-feed-copy h2 { margin:.3rem 0 .45rem; }
+.walter-feed-copy p { margin:0; color:#aeb4c9; line-height:1.45; }
+.walter-feed-button {
+  width:100%;
+  min-height:260px;
+  display:grid;
+  place-items:end center;
+  padding:0;
+  border:0;
+  border-radius:16px;
+  background:radial-gradient(circle at 50% 74%, rgba(255,224,175,.12), transparent 58%);
+  cursor:pointer;
+  overflow:visible;
+  box-shadow:none;
+}
+.walter-feed-button:hover { transform:none; box-shadow:none; }
+.walter-feed-button:disabled { opacity:.82; cursor:wait; }
+.walter-feed-button img {
+  display:block;
+  width:auto;
+  height:310px;
+  max-width:100%;
+  object-fit:contain;
+  object-position:center bottom;
+  user-select:none;
+  -webkit-user-drag:none;
+  filter:drop-shadow(0 14px 18px rgba(0,0,0,.32));
+  transform-origin:50% 100%;
+}
+.walter-feed-button img.walter-jump {
+  animation:walter-big-jump .82s cubic-bezier(.2,.75,.22,1);
+}
+@keyframes walter-big-jump {
+  0% { transform:translateY(0) scale(1) rotate(0); }
+  18% { transform:translateY(-42px) scale(1.16) rotate(-5deg); }
+  38% { transform:translateY(-58px) scale(1.22) rotate(4deg); }
+  58% { transform:translateY(-16px) scale(1.08) rotate(-2deg); }
+  74% { transform:translateY(-30px) scale(1.13) rotate(2deg); }
+  100% { transform:translateY(0) scale(1) rotate(0); }
+}
+.walter-feed-status {
+  grid-column:1 / -1;
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:2px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#241f13;
+  border:1px solid #7f672f;
+  color:#ffe59c;
+  font-size:1rem;
+  font-weight:950;
+  text-align:center;
+  overflow-wrap:anywhere;
+}
+.walter-feed-card.hungry .walter-feed-status {
+  background:#281720;
+  border-color:#6e3445;
+  color:#ffc4d3;
+}
+.walter-more { font-size:.82rem; margin-left:4px; color:#f7cd65; }
+.theme-siri + .walter-feed-card,
+.player-theme-marie .walter-feed-card { border-color:rgba(255,111,205,.5); }
+
+@media (max-width:760px) {
+  .walter-feed-card { grid-template-columns:1fr; text-align:center; }
+  .walter-feed-button { min-height:230px; }
+  .walter-feed-button img { width:auto; height:285px; max-width:min(74vw, 235px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .walter-feed-button img.walter-jump { animation:none; transform:scale(1.08); }
+}
