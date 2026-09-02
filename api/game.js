@@ -107,12 +107,13 @@ const FAILURE_LABELS = new Map([
   ["Passordet må inneholde minst én av de syv siste bokstavene i det norske alfabetet.", "Regel 5.2"],
   ["Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.", "Regel 6"],
   ["Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.", "Regel 7"],
-  ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 8"],
-  ["Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.", "Regel 9"],
-  ["Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.", "Regel 10"],
-  ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 11"],
-  ["Passordet må inneholde tittelen på en film med Brad Pitt.", "Regel 12"],
-  ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 13"]
+  ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 9"],
+  ["Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.", "Regel 10"],
+  ["Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.", "Regel 11"],
+  ["Summen av alle tallene i passordet må være et partall.", "Regel 12"],
+  ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 13"],
+  ["Passordet må inneholde tittelen på en film med Brad Pitt.", "Regel 14"],
+  ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 15"]
 ]);
 
 function detailForFailure(text) {
@@ -165,7 +166,9 @@ function publicState(meta, players) {
         valid: revealResults && p.submission ? Boolean(p.valid) : null,
         eliminatedRound: p.eliminatedRound ?? null,
         reason: revealResults ? (p.reason ?? null) : null,
-        failures: revealResults ? (p.failures || []) : []
+        failures: revealResults ? (p.failures || []) : [],
+        walterFeedRound: p.walterFeedRound ?? null,
+        walterFeedCount: p.walterFeedCount ?? 0
       }))
       .sort((a, b) => Number(b.alive) - Number(a.alive) || a.name.localeCompare(b.name, "nb"))
   };
@@ -277,11 +280,40 @@ export default async function handler(req, res) {
         failureDetails: [],
         submittedAt: null,
         eliminatedRound: null,
-        reason: null
+        reason: null,
+        walterFeedRound: null,
+        walterFeedCount: 0,
+        walterFirstFedAt: null
       };
       await savePlayer(player, redis);
       const players = await getPlayers(redis);
       return send(res, 200, { ok: true, player: { id, name, token }, state: publicState(meta, players) });
+    }
+
+    if (action === "feed_walter") {
+      if (meta.status !== "round_open") fail("Walter kan bare mates mens en runde pågår.", 409);
+      if (meta.round < 8) fail("Walter-regelen har ikke startet ennå.", 409);
+      if (meta.deadline && Date.now() > meta.deadline) fail("Tiden er ute for denne runden.", 409);
+
+      const player = await getPlayer(body.playerId, redis);
+      if (!player || player.token !== body.playerToken) fail("Player session not found. Rejoin after the next reset.", 401);
+      if (!player.alive) fail("You have been eliminated.", 409);
+
+      const now = Date.now();
+      if (player.walterFeedRound !== meta.round) {
+        player.walterFeedRound = meta.round;
+        player.walterFeedCount = 0;
+        player.walterFirstFedAt = now;
+      }
+      if (!player.walterFirstFedAt) player.walterFirstFedAt = now;
+      player.walterFeedCount = Math.min(999, Number(player.walterFeedCount || 0) + 1);
+      await savePlayer(player, redis);
+
+      return send(res, 200, {
+        ok: true,
+        walterFeedRound: meta.round,
+        walterFeedCount: player.walterFeedCount
+      });
     }
 
     if (action === "submit") {
@@ -327,6 +359,9 @@ export default async function handler(req, res) {
         p.submittedAt = null;
         p.eliminatedRound = null;
         p.reason = null;
+        p.walterFeedRound = null;
+        p.walterFeedCount = 0;
+        p.walterFirstFedAt = null;
         await savePlayer(p, redis);
       }
 
@@ -372,6 +407,22 @@ export default async function handler(req, res) {
       for (const p of playersAtStart) {
         const validation = validationById.get(p.id) || noSubmissionValidation();
         const failureDetails = (validation.failures || []).map(detailForFailure);
+
+        if (meta.round >= 8) {
+          const fedBeforeFinalSubmission = Boolean(
+            p.walterFeedRound === meta.round &&
+            Number(p.walterFeedCount || 0) >= 1 &&
+            p.walterFirstFedAt &&
+            p.submittedAt &&
+            p.walterFirstFedAt <= p.submittedAt
+          );
+          if (!fedBeforeFinalSubmission) {
+            failureDetails.push({
+              rule: "Regel 8",
+              text: "Du glemte å mate Walter før du leverte passordet denne runden."
+            });
+          }
+        }
 
         if (validation.valid && p.submission) {
           const first = firstByPassword.get(duplicateKey(p.submission));
@@ -459,6 +510,9 @@ export default async function handler(req, res) {
           p.failureDetails = [];
           p.submittedAt = null;
           p.reason = null;
+          p.walterFeedRound = null;
+          p.walterFeedCount = 0;
+          p.walterFirstFedAt = null;
           await savePlayer(p, redis);
         }
 
