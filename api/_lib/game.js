@@ -1153,7 +1153,7 @@ export const RULES = [
   },
   {
     id: "round2",
-    text: "Passordet ditt må inneholde minst én stor bokstav og ett tall, og minst ett romertall (I, V, X, L, C, D eller M)."
+    text: "Passordet ditt må inneholde minst én stor bokstav og ett tall, og minst ett romertall."
   },
   {
     id: "round3",
@@ -1185,7 +1185,7 @@ export const RULES = [
   },
   {
     id: "anniversary",
-    text: "Passordet ditt må inneholde navnet på et bryllupsjubileum. Skriv selve betegnelsen, for eksempel «papir» fra papirbryllup eller «ull» fra ullbryllup."
+    text: "Passordet ditt må inneholde navnet på et bryllupsjubileum. Du trenger ikke inkludere ordet «bryllup»."
   }
 ];
 
@@ -1299,7 +1299,7 @@ export function validatePassword(password, round, options = {}) {
       failures.push("Passordet må inneholde minst én stor bokstav og ett tall.");
     }
     if (!hasRomanNumeralSymbol(p)) {
-      failures.push("Passordet må inneholde minst ett romertall: I, V, X, L, C, D eller M.");
+      failures.push("Passordet må inneholde minst ett romertall.");
     }
   }
 
