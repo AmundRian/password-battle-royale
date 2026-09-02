@@ -279,27 +279,41 @@ function walterBonesHtml(count) {
   return `${"🦴".repeat(shown)}${safe > shown ? ` <span class="walter-more">+${safe - shown}</span>` : ""}`;
 }
 
-function walterFeedPanelHtml() {
-  if (hostMode || state?.meta?.status !== "round_open" || (state?.meta?.round || 0) < 8) return "";
+function walterFeedState() {
   const self = selfState();
-  if (!self?.alive) return "";
+  const fedThisRound = Boolean(self && self.walterFeedRound === state?.meta?.round);
+  const count = fedThisRound ? Number(self?.walterFeedCount || 0) : 0;
+  return { self, count };
+}
 
-  const fedThisRound = self.walterFeedRound === state.meta.round;
-  const count = fedThisRound ? Number(self.walterFeedCount || 0) : 0;
-  const status = count > 0
-    ? `Walter er matet ${walterBonesHtml(count)}`
-    : "Walter er sulten — trykk på ham før du leverer passordet.";
+function walterRuleMediaHtml() {
+  if (hostMode) {
+    return `<div class="walter-rule-static"><img src="${walterImage}" alt="Walter" draggable="false"></div>`;
+  }
 
-  return `<div class="walter-feed-card ${count > 0 ? "fed" : "hungry"}">
-    <div class="walter-feed-copy">
-      <div class="eyebrow">REGEL 8 · MAT WALTER</div>
-      <h2>Husk Walter 🐶</h2>
-      <p>Trykk på Walter minst én gang før du leverer passordet. Du kan mate ham flere ganger hvis du vil.</p>
-    </div>
-    <button id="feed-walter" class="walter-feed-button" type="button" aria-label="Mat Walter">
+  const { self, count } = walterFeedState();
+  const canFeed = state?.meta?.status === "round_open" && state?.meta?.round === 8 && self?.alive;
+  const status = count > 0 ? `Walter er matet ${walterBonesHtml(count)}` : "";
+
+  return `<div class="walter-interaction walter-rule-interaction ${count > 0 ? "fed" : "hungry"}">
+    <button ${canFeed ? 'id="feed-walter"' : ""} class="walter-rule-button" type="button" aria-label="Mat Walter" ${canFeed ? "" : "disabled"}>
       <img src="${walterImage}" alt="Walter" draggable="false">
     </button>
-    <div id="walter-feed-status" class="walter-feed-status" aria-live="polite">${status}</div>
+    <div id="walter-feed-status" class="walter-feed-status" aria-live="polite" ${status ? "" : "hidden"}>${status}</div>
+  </div>`;
+}
+
+function walterInlineHtml() {
+  if (hostMode || state?.meta?.status !== "round_open" || (state?.meta?.round || 0) < 9) return "";
+  const { self, count } = walterFeedState();
+  if (!self?.alive) return "";
+  const status = count > 0 ? `Walter er matet ${walterBonesHtml(count)}` : "";
+
+  return `<div class="walter-interaction walter-inline ${count > 0 ? "fed" : "hungry"}">
+    <button id="feed-walter" class="walter-inline-button" type="button" aria-label="Mat Walter">
+      <img src="${walterImage}" alt="Walter" draggable="false">
+    </button>
+    <div id="walter-feed-status" class="walter-inline-status" aria-live="polite" ${status ? "" : "hidden"}>${status}</div>
   </div>`;
 }
 
@@ -307,8 +321,15 @@ function rulesHtml() {
   const rules = state?.rules || [];
   if (!rules.length) return `<p class="muted">Rules appear when the host starts the game.</p>`;
 
+  // Fra runde 9 er Walter en vedvarende handling ved passordfeltet, ikke et gammelt
+  // regelkort nederst i listen. Vi beholder det opprinnelige regelnummeret på de
+  // øvrige reglene, slik at nyeste regel alltid står nederst med riktig nummer.
+  const visibleRules = rules
+    .map((rule, index) => ({ rule, number: index + 1 }))
+    .filter(({ rule }) => !(rule.id === "walter" && (state?.meta?.round || 0) >= 9));
+
   return `<ol class="rules">
-    ${rules.map((r, i) => {
+    ${visibleRules.map(({ rule: r, number }) => {
       const hint = r.id === "pokemon" && !hostMode && hasPokemonHint()
         ? `<details class="rule-hint">
             <summary>Hint til oss over 50 år</summary>
@@ -317,9 +338,11 @@ function rulesHtml() {
         : "";
       const media = r.id === "animals"
         ? animalRuleImagesHtml()
-        : (r.id === "meeting_year" ? meetingRuleImagesHtml() : "");
-      const withImages = r.id === "animals" || r.id === "meeting_year";
-      return `<li class="${withImages ? "rule-with-images" : ""}"><span>${i + 1}</span><div>${esc(r.text)}${media}${hint}</div></li>`;
+        : (r.id === "meeting_year"
+          ? meetingRuleImagesHtml()
+          : (r.id === "walter" && (state?.meta?.round || 0) === 8 ? walterRuleMediaHtml() : ""));
+      const withMedia = r.id === "animals" || r.id === "meeting_year" || (r.id === "walter" && (state?.meta?.round || 0) === 8);
+      return `<li class="${withMedia ? "rule-with-images" : ""}"><span>${number}</span><div>${esc(r.text)}${media}${hint}</div></li>`;
     }).join("")}
   </ol>`;
 }
@@ -428,22 +451,25 @@ function playerPanel() {
     const time = secondsLeft();
     const previousPassword = player?.lastPassword || "";
 
-    return `${walterFeedPanelHtml()}<div class="card accent">
+    return `<div class="card accent">
       <div class="submit-head">
         <h2>Submit your password</h2>
         <div id="countdown" class="countdown">${time ?? "—"}s</div>
       </div>
 
       <form id="submit-form">
-        <label>Password
-          <input
-            name="password"
-            maxlength="200"
-            autocomplete="off"
-            required
-            value="${esc(previousPassword)}"
-            placeholder="Build a password that passes every rule">
-        </label>
+        <div class="password-entry-row ${state.meta.round >= 9 ? "with-walter" : ""}">
+          <label>Password
+            <input
+              name="password"
+              maxlength="200"
+              autocomplete="off"
+              required
+              value="${esc(previousPassword)}"
+              placeholder="Build a password that passes every rule">
+          </label>
+          ${walterInlineHtml()}
+        </div>
         <button ${time === 0 ? "disabled" : ""}>Submit / replace</button>
       </form>
 
@@ -888,13 +914,14 @@ function bindEvents() {
         self.walterFeedCount = data.walterFeedCount;
       }
 
-      const card = button.closest(".walter-feed-card");
+      const card = button.closest(".walter-interaction");
       const image = button.querySelector("img");
       const status = card?.querySelector("#walter-feed-status");
       card?.classList.remove("hungry");
       card?.classList.add("fed");
 
       if (status) {
+        status.hidden = false;
         status.innerHTML = `Walter er matet ${walterBonesHtml(data.walterFeedCount)}`;
       }
 
