@@ -33,6 +33,12 @@ function passwordLength(value) {
   return value == null ? null : [...String(value)].length;
 }
 
+function roundSeconds(value, fallback = 60) {
+  const parsed = Number(value);
+  const safe = Number.isFinite(parsed) ? parsed : fallback;
+  return Math.max(10, Math.min(600, Math.round(safe)));
+}
+
 function shortestPasswordWinners(players) {
   const eligible = players
     .filter(p => p.alive && p.submission)
@@ -183,7 +189,7 @@ function makeRoundResult(round, playersAtStart, finalPlayers) {
     eliminated: resultPlayers.filter(p => !p.survived).length,
     remaining: finalPlayers.filter(p => p.alive).length,
     failureCounts,
-    shortestPasswordLength: resultPlayers.find(p => p.submitted)?.passwordLength ?? null,
+    shortestPasswordLength: resultPlayers.find(p => p.submitted && p.survived)?.passwordLength ?? null,
     players: resultPlayers,
     closedAt: Date.now()
   };
@@ -256,11 +262,12 @@ export default async function handler(req, res) {
 
     if (action === "set_timer") {
       if (meta.status !== "lobby") fail("Change the timer before starting the game.", 409);
-      const seconds = Math.max(20, Math.min(300, Number(body.seconds) || 60));
+      const seconds = roundSeconds(body.seconds, meta.roundSeconds || 60);
       meta = await setMeta({ ...meta, roundSeconds: Math.round(seconds) }, redis);
 
     } else if (action === "start") {
       if (meta.status !== "lobby") fail("The game is not in the lobby.", 409);
+      const seconds = roundSeconds(body.seconds, meta.roundSeconds || 60);
       const players = await getPlayers(redis);
       if (!players.length) fail("At least one player must join first.", 409);
 
@@ -280,7 +287,8 @@ export default async function handler(req, res) {
         ...meta,
         status: "round_open",
         round: 1,
-        deadline: Date.now() + meta.roundSeconds * 1000,
+        roundSeconds: seconds,
+        deadline: Date.now() + seconds * 1000,
         winner: null,
         winners: [],
         winningPasswordLength: null,
@@ -298,7 +306,7 @@ export default async function handler(req, res) {
       for (const p of playersAtStart) {
         validationById.set(
           p.id,
-          p.submission ? validatePassword(p.submission, meta.round) : noSubmissionValidation()
+          p.submission ? validatePassword(p.submission, meta.round, { playerName: p.name }) : noSubmissionValidation()
         );
       }
 
@@ -311,22 +319,21 @@ export default async function handler(req, res) {
       const firstByPassword = new Map();
       for (const p of validPlayers) {
         const key = duplicateKey(p.submission);
-        if (!firstByPassword.has(key)) firstByPassword.set(key, p.id);
+        if (!firstByPassword.has(key)) firstByPassword.set(key, { id: p.id, name: p.name });
       }
 
       for (const p of playersAtStart) {
         const validation = validationById.get(p.id) || noSubmissionValidation();
         const failureDetails = (validation.failures || []).map(detailForFailure);
 
-        if (
-          validation.valid &&
-          p.submission &&
-          firstByPassword.get(duplicateKey(p.submission)) !== p.id
-        ) {
-          failureDetails.push({
-            rule: "Duplikat",
-            text: "En annen deltaker leverte det samme passordet først."
-          });
+        if (validation.valid && p.submission) {
+          const first = firstByPassword.get(duplicateKey(p.submission));
+          if (first && first.id !== p.id) {
+            failureDetails.push({
+              rule: "Duplikat",
+              text: `${first.name} leverte det samme passordet først.`
+            });
+          }
         }
 
         const eliminated = failureDetails.length > 0;
@@ -383,6 +390,7 @@ export default async function handler(req, res) {
 
     } else if (action === "next_round") {
       if (meta.status !== "results") fail("Close the current round first.", 409);
+      const seconds = roundSeconds(body.seconds, meta.roundSeconds || 60);
       const players = await getPlayers(redis);
       const survivors = players.filter(p => p.alive);
 
@@ -411,7 +419,8 @@ export default async function handler(req, res) {
           ...meta,
           status: "round_open",
           round: meta.round + 1,
-          deadline: Date.now() + meta.roundSeconds * 1000
+          roundSeconds: seconds,
+          deadline: Date.now() + seconds * 1000
         }, redis);
       }
 
