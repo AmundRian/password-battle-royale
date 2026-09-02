@@ -110,7 +110,7 @@ const FAILURE_LABELS = new Map([
   ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 9"],
   ["Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.", "Regel 10"],
   ["Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.", "Regel 11"],
-  ["Summen av alle tallene i passordet må være et partall.", "Regel 12"],
+  ["Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.", "Regel 12"],
   ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 13"],
   ["Passordet må inneholde tittelen på en film med Brad Pitt.", "Regel 14"],
   ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 15"]
