@@ -66,3 +66,54 @@ footer { color:#686f87; text-align:center; font-size:.75rem; padding:24px 0 4px;
   .grid { grid-template-columns:1fr; }
   .status-block { padding-top:4px; }
 }
+
+
+/* Siri wedding-game additions */
+.player.shortest {
+  border-color:#a98c34;
+  background:#25210f;
+}
+.password-result-line {
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  min-width:0;
+}
+.password-result {
+  flex:1;
+  min-width:0;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  color:#d8dcef;
+}
+button.copy-button {
+  flex:0 0 auto;
+  padding:.35rem .55rem;
+  border-radius:8px;
+  font-size:.72rem;
+}
+.rule-hint {
+  margin-top:9px;
+  padding:9px 10px;
+  border:1px solid #8d7b3c;
+  border-radius:10px;
+  background:#262112;
+  color:#ffe797;
+}
+.rule-hint summary {
+  cursor:pointer;
+  font-weight:900;
+}
+.rule-hint div {
+  margin-top:7px;
+  color:#f1e8bf;
+  font-size:.86rem;
+}
+@media (max-width: 520px) {
+  .password-result-line { align-items:stretch; flex-direction:column; }
+  button.copy-button { align-self:flex-start; }
+}
+.player.shortest .password-result {
+  color:#ffe797;
+  font-weight:800;
+}
