@@ -4,6 +4,8 @@ import maurpinnsvinImage from "./maurpinnsvin.webp";
 import leopardImage from "./leopard.webp";
 import sommerfuglImage from "./sommerfugl.webp";
 import nebbdyrImage from "./nebbdyr.webp";
+import moteBilde1 from "./motebilde1.webp";
+import moteBilde2 from "./motebilde2.webp";
 
 const app = document.querySelector("#app");
 const params = new URLSearchParams(location.search);
@@ -57,6 +59,7 @@ function questionThemeClass() {
   const name = normalizedNickname(currentNickname());
   if (name === "siri") return "theme-siri";
   if (name === "marius") return "theme-marius";
+  if (name === "marie") return "theme-marie";
   return "";
 }
 
@@ -67,6 +70,9 @@ function specialThemeIntroHtml() {
   }
   if (theme === "theme-marius") {
     return `<div class="theme-banner marius-banner">🤡 Marius-modus aktivert · stygt tema til en stygg fyr</div>`;
+  }
+  if (theme === "theme-marie") {
+    return `<div class="theme-banner marie-banner">🌸⚡ Marie-mode · neon, sakura og hovedkarakter-energi ✨</div>`;
   }
   return "";
 }
@@ -90,6 +96,29 @@ function mariusBetweenRoundsHtml() {
   ];
   const index = Math.max(0, Math.min(messages.length - 1, (state?.meta?.round || 1) - 1));
   return `<div class="card marius-roast"><strong>💩 Marius-melding:</strong> ${esc(messages[index])}</div>`;
+}
+
+function marieBetweenRoundsHtml() {
+  if (hostMode || normalizedNickname(currentNickname()) !== "marie") return "";
+  if (!["results", "game_over"].includes(state?.meta?.status)) return "";
+
+  const messages = [
+    "Siri og Amund er skikkelig heldige som har Marie som venn. 🌸",
+    "Marie har ekte hovedkarakter-energi. ✨",
+    "Vennskapsnivå: legendarisk. Siri og Amund godkjenner. 💖",
+    "Marie-route unlocked: lojal, morsom og helt rå som venn. ⚡",
+    "Sakura-bonus: Marie gjør bryllupsgjengen bedre bare ved å være der. 🌸",
+    "Siri + Amund + Marie = elite friendship arc. 💫",
+    "Marie, du er den typen venn brudeparet håper å beholde i alle sesonger. 💗",
+    "Neonstatus: Marie skinner fortsatt sterkere enn bakgrunnen. ✨",
+    "Siri og Amund setter enormt stor pris på deg, Marie. 🌸",
+    "Marie er fortsatt med — akkurat som en ekte protagonist. ⚡",
+    "Final arc nærmer seg. Marie har allerede vunnet vennskapskategorien. 💖",
+    "Nesten mål: Siri og Amund sender vennskapsbuff til Marie. 🌸✨",
+    "Finale! Uansett resultat er Marie S-tier venn av brudeparet. 💗"
+  ];
+  const index = Math.max(0, Math.min(messages.length - 1, (state?.meta?.round || 1) - 1));
+  return `<div class="card marie-message"><strong>🌸 Marie-melding:</strong> ${esc(messages[index])}</div>`;
 }
 
 async function copyText(value) {
@@ -217,10 +246,25 @@ function animalRuleImagesHtml() {
     { src: nebbdyrImage, label: "Dyr 5" }
   ];
 
-  return `<div class="animal-rule-gallery" aria-label="Fem dyrebilder til regel 11">
+  return `<div class="animal-rule-gallery" aria-label="Fem dyrebilder til regel 6">
     ${animals.map((animal, index) => `
       <figure class="animal-rule-image">
-        <img src="${animal.src}" alt="${animal.label} i regel 11" loading="eager">
+        <img src="${animal.src}" alt="${animal.label} i regel 6" loading="eager">
+        <figcaption>${index + 1}</figcaption>
+      </figure>
+    `).join("")}
+  </div>`;
+}
+
+function meetingRuleImagesHtml() {
+  const images = [
+    { src: moteBilde1, label: "Person 1" },
+    { src: moteBilde2, label: "Person 2" }
+  ];
+  return `<div class="meeting-rule-gallery" aria-label="To bilder til regel 7">
+    ${images.map((image, index) => `
+      <figure class="meeting-rule-image">
+        <img src="${image.src}" alt="${image.label} i regel 7" loading="eager">
         <figcaption>${index + 1}</figcaption>
       </figure>
     `).join("")}
@@ -239,8 +283,11 @@ function rulesHtml() {
             <div>Du kan bruke ett av disse alternativene: <strong>Mew</strong>, <strong>Muk</strong> eller <strong>Ekans</strong>.</div>
           </details>`
         : "";
-      const media = r.id === "animals" ? animalRuleImagesHtml() : "";
-      return `<li class="${r.id === "animals" ? "rule-with-images" : ""}"><span>${i + 1}</span><div>${esc(r.text)}${media}${hint}</div></li>`;
+      const media = r.id === "animals"
+        ? animalRuleImagesHtml()
+        : (r.id === "meeting_year" ? meetingRuleImagesHtml() : "");
+      const withImages = r.id === "animals" || r.id === "meeting_year";
+      return `<li class="${withImages ? "rule-with-images" : ""}"><span>${i + 1}</span><div>${esc(r.text)}${media}${hint}</div></li>`;
     }).join("")}
   </ol>`;
 }
@@ -700,6 +747,8 @@ function render() {
   const total = state.players.length;
   const time = secondsLeft();
 
+  document.body.classList.toggle("player-theme-marie", !hostMode && normalizedNickname(currentNickname()) === "marie");
+
   const winnerText = meta.status === "game_over"
     ? ((meta.winners || []).length
       ? `Vinner${meta.winners.length > 1 ? "e" : ""}: ${meta.winners.map(esc).join(", ")}${meta.winningPasswordLength != null ? ` · ${meta.winningPasswordLength} tegn` : ""}`
@@ -738,6 +787,7 @@ function render() {
 
         ${playerPanel()}
         ${mariusBetweenRoundsHtml()}
+        ${marieBetweenRoundsHtml()}
         ${roundResultsHtml()}
         ${overallRankingHtml()}
       </div>
