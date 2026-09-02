@@ -1149,6 +1149,194 @@ const SONG_TITLES = [...BEATLES_SONGS, ...QUEEN_SONGS, ...KILLERS_SONGS];
 // Rule 11: fixed Norwegian/English answer set for the five pictured animals.
 // normalizeLoose() removes spaces, hyphens and punctuation before matching,
 // so variants such as "duck-billed platypus" and "duck billed platypus" are equivalent.
+
+const MESTERNES_MESTER_NAMES = [
+  "Dag Otto Lauritzen",
+  "Stian Grimseth",
+  "Gøran Sørloth",
+  "Hilde Gjermundshaug Pedersen",
+  "Cathrine Roll-Matthiesen",
+  "Ole Klemetsen",
+  "Ove Aunli",
+  "Berit Aunli",
+  "Cecilie Brinck Rygel",
+  "Daniel Franck",
+  "Trine Hattestad",
+  "Andrine Flemmen",
+  "Espen Bredesen",
+  "Bjarte Engen Vik",
+  "Jim Marthinsen",
+  "Jan Kvalheim",
+  "Nina Solheim",
+  "Per Egil Ahlsen",
+  "Brit Pettersen",
+  "Anette Bøe",
+  "Finn Christian Jagge",
+  "Trine Haltvik",
+  "Ailo Gaup",
+  "Siren Sundby",
+  "Halvard Hanevold",
+  "Jorunn Horgen",
+  "Frode Rønning",
+  "Lene Jenssen",
+  "Frode Estil",
+  "Kay Stenshjemmet",
+  "Tor-Arne Hetland",
+  "Sune Wentzel",
+  "Roar Strand",
+  "Henrik Bjørnstad",
+  "Astrid Lødemel",
+  "Trude Dybendahl",
+  "Linda Grubben",
+  "Bente Nordby",
+  "Linda Cerup-Simonsen",
+  "Thomas Hansvoll",
+  "Marco Elsafadi",
+  "Johan Remen Evensen",
+  "Susann Goksør Bjerkrheim",
+  "Erik Solér",
+  "Kjersti Grini",
+  "Knut Holmann",
+  "Gro Espeseth",
+  "Kim Rygel",
+  "Roger Ruud",
+  "Ingrid Kristiansen",
+  "Stine Brun Kjeldaas",
+  "Aleksander Hetland",
+  "Frode Andresen",
+  "Mette Solli",
+  "Harald Martin Brattbakk",
+  "Marit Mikkelsplass",
+  "Monica Valen",
+  "Lars Bystøl",
+  "Jahn Ivar Jakobsen",
+  "Pål Gunnar Mikkelsplass",
+  "Kari Schibevaag",
+  "Tora Berger",
+  "Thor Hushovd",
+  "Andreas Håtveit",
+  "Vibeke Skofterud",
+  "Bjørn Maaseide",
+  "Ragnhild Gulbrandsen",
+  "Jan Åge Fjørtoft",
+  "Anne Jahren",
+  "Roy Johansen",
+  "Anette Sagen",
+  "Siri Eftedal Seland",
+  "Anders Jacobsen",
+  "Helene Olafsen",
+  "Tonje Sørlie",
+  "Frode Grodås",
+  "Else-Marthe Sørlie Lybekk",
+  "Eldar Rønning",
+  "Anita Moen",
+  "Ine Barlie",
+  "Odd Sørli",
+  "Bartosz Piasecki",
+  "Gro Hammerseng-Edin",
+  "Espen Jansen",
+  "Solveig Gulbrandsen",
+  "Isabel Blanco",
+  "Andreas Ygre Wiig",
+  "Steffen Iversen",
+  "Kurt Asle Arvesen",
+  "Rolf Falk-Larssen",
+  "Lena Boysen Hillestad",
+  "Bjørg Eva Jensen",
+  "Pål Anders Ullevålseter",
+  "Karoline Dyhre Breivang",
+  "Hanne Haugland",
+  "Glenn Solberg",
+  "Tom Hilde",
+  "Karina Hollekim",
+  "Lars Berger",
+  "Kine Olsen Vedelden",
+  "Ole Martin Årst",
+  "Ann Kristin Flatland",
+  "Eirik Verås Larsen",
+  "Kjersti Buaas",
+  "Ingvill Måkestad Bovim",
+  "Margaret Knutson Aase",
+  "Odd-Bjørn Hjelmeset",
+  "Kari Mette Johansen",
+  "Emil Hegle Svendsen",
+  "Vidar Riseth",
+  "Magnus Moan",
+  "Madeleine Enersen Hellerød",
+  "Aksel Lund Svindal",
+  "Håvard Tvedten",
+  "Magnus Midtbø",
+  "Anne Margrethe Hausken Nordberg",
+  "Synnøve Solemdal",
+  "Johann Olav Koss",
+  "Linda Medalen",
+  "Cecilie Leganger",
+  "Genette Våge",
+  "Øystein Pettersen",
+  "Nils Jakob Hoff",
+  "Bjørn Einar Romøren",
+  "Øystein Pettersen",
+  "Madelene Rubinstein",
+  "Anja Hammerseng-Edin",
+  "Nadya Khamitskaya Andersen",
+  "Ida Njåtun",
+  "Linn-Kristin Riegelhuth Koren",
+  "Tommy Rustad",
+  "Olaf Tufte",
+  "Kristin Holte",
+  "Andreas Lødrup",
+  "Ola Vigen Hattestad",
+  "Helene Spilling",
+  "Frode Johnsen",
+  "Hanne Staff",
+  "Linn Jørum Sulland",
+  "Stig André Berge",
+  "Ezinne Okparaebo",
+  "Ole-Kristian Bryhn",
+  "Anders Aukland",
+  "Pål André Helland",
+  "Birgitte Lersbryggen",
+  "Marit Malm Frafjord",
+  "Camilla Gjersem",
+  "Tiril Eckhoff",
+  "Terje Håkonsen",
+  "Astrid Uhrenholdt Jacobsen",
+  "Stian Sivertzen",
+  "Hedda Berntsen",
+  "Tobias Becs",
+  "Tobias Brandal Busæt",
+  "Kai Robin Havnaa",
+  "Fatima Pinto",
+  "Tarik Elyounoussi",
+  "Johanne Killi",
+  "Gyda Bloch Thorsen",
+  "Kristin Harila",
+  "Erlend Mamelund",
+  "Simen Agdestein",
+  "Edvald Boasson-Hagen",
+  "Isabell Herlovsen",
+  "Daniel-André Tande",
+  "Emil Lybekk",
+  "Kristin Størmer Steira",
+  "Isabelle Pedersen",
+  "Jarl Magnus Riiber",
+  "Mushaga Bakenga",
+  "Marte Olsbu Røiseland",
+  "Ayla Ågren"
+];
+
+function initialsFromFullName(name) {
+  return String(name ?? "")
+    .replace(/[«»“”"']/g, "")
+    .trim()
+    .split(/[\s-]+/u)
+    .filter(Boolean)
+    .map(part => [...part][0]?.toLocaleUpperCase("nb-NO") || "")
+    .join("");
+}
+
+const MESTERNES_MESTER_INITIALS = [...new Set(MESTERNES_MESTER_NAMES.map(initialsFromFullName))];
+
 const PICTURE_ANIMALS = [
   // Nebbdyr / platypus
   "nebbdyr",
@@ -1205,7 +1393,15 @@ export const RULES = [
   },
   {
     id: "round5",
-    text: "Passordet ditt må inneholde en hovedingrediens i pannekakerøre, og minst én av de syv siste bokstavene i det norske alfabetet (W, X, Y, Z, Æ, Ø eller Å)."
+    text: "Passordet ditt må inneholde en hovedingrediens i pannekakerøre, og minst én av de syv siste bokstavene i det norske alfabetet."
+  },
+  {
+    id: "animals",
+    text: "Passordet ditt må inneholde navnet på minst ett av dyrene som vises på bildene. Norske og engelske navn godkjennes."
+  },
+  {
+    id: "meeting_year",
+    text: "Passordet ditt må inneholde årstallet da personene på bildene møtte hverandre for første gang."
   },
   {
     id: "song",
@@ -1214,6 +1410,10 @@ export const RULES = [
   {
     id: "pokemon",
     text: "Passordet ditt må inneholde navnet på en Pokémon fra de første 150 i Pokédex."
+  },
+  {
+    id: "mesternes",
+    text: "Passordet ditt må inneholde initialene til en deltaker fra «Mesternes mester». Initialene må skrives med store bokstaver."
   },
   {
     id: "r_count",
@@ -1225,11 +1425,7 @@ export const RULES = [
   },
   {
     id: "anniversary",
-    text: "Passordet ditt må inneholde navnet på et bryllupsjubileum. Du trenger ikke inkludere ordet «bryllup»."
-  },
-  {
-    id: "animals",
-    text: "Passordet ditt må inneholde navnet på minst ett av dyrene som vises på bildene. Norske og engelske navn godkjennes."
+    text: "Passordet ditt må inneholde betegnelsen på et bryllupsjubileum. Du trenger ikke å inkludere ordet «bryllup»."
   }
 ];
 
@@ -1269,6 +1465,11 @@ function hasRomanNumeralSymbol(password) {
 
 function hasLastSevenNorwegianLetter(password) {
   return /[wxyzæøå]/iu.test(String(password ?? ""));
+}
+
+function hasMesternesMesterInitials(password) {
+  const p = String(password ?? "");
+  return MESTERNES_MESTER_INITIALS.some(initials => initials && p.includes(initials));
 }
 
 function rCountMatchesEnding(password) {
@@ -1365,15 +1566,23 @@ export function validatePassword(password, round, options = {}) {
       failures.push("Passordet må inneholde en hovedingrediens i pannekakerøre.");
     }
     if (!hasLastSevenNorwegianLetter(p)) {
-      failures.push("Passordet må inneholde minst én av bokstavene W, X, Y, Z, Æ, Ø eller Å.");
+      failures.push("Passordet må inneholde minst én av de syv siste bokstavene i det norske alfabetet.");
     }
   }
 
-  if (maxRound >= 6 && !containsAnyLoose(p, SONG_TITLES)) {
+  if (maxRound >= 6 && !containsAnyLoose(p, PICTURE_ANIMALS)) {
+    failures.push("Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.");
+  }
+
+  if (maxRound >= 7 && !p.includes("2018")) {
+    failures.push("Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.");
+  }
+
+  if (maxRound >= 8 && !containsAnyLoose(p, SONG_TITLES)) {
     failures.push("Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.");
   }
 
-  if (maxRound >= 7) {
+  if (maxRound >= 9) {
     const standardPokemon = containsAnyLoose(p, GEN1_POKEMON);
     const hintedMew = hasPokemonHintAccess(options.playerName) && containsAnyLoose(p, ["Mew"]);
     if (!(standardPokemon || hintedMew)) {
@@ -1381,20 +1590,20 @@ export function validatePassword(password, round, options = {}) {
     }
   }
 
-  if (maxRound >= 8 && !rCountMatchesEnding(p)) {
+  if (maxRound >= 10 && !hasMesternesMesterInitials(p)) {
+    failures.push("Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.");
+  }
+
+  if (maxRound >= 11 && !rCountMatchesEnding(p)) {
     failures.push("Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.");
   }
 
-  if (maxRound >= 9 && !containsAnyLoose(p, BRAD_PITT_FILMS)) {
+  if (maxRound >= 12 && !containsAnyLoose(p, BRAD_PITT_FILMS)) {
     failures.push("Passordet må inneholde tittelen på en film med Brad Pitt.");
   }
 
-  if (maxRound >= 10 && !containsAnyLoose(p, WEDDING_ANNIVERSARIES)) {
+  if (maxRound >= 13 && !containsAnyLoose(p, WEDDING_ANNIVERSARIES)) {
     failures.push("Passordet må inneholde navnet på et bryllupsjubileum.");
-  }
-
-  if (maxRound >= 11 && !containsAnyLoose(p, PICTURE_ANIMALS)) {
-    failures.push("Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.");
   }
 
   return { valid: failures.length === 0, failures };
