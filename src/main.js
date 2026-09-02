@@ -6,6 +6,7 @@ import sommerfuglImage from "./sommerfugl.webp";
 import nebbdyrImage from "./nebbdyr.webp";
 import moteBilde1 from "./motebilde1.webp";
 import moteBilde2 from "./motebilde2.webp";
+import walterImage from "./walter.webp";
 
 const app = document.querySelector("#app");
 const params = new URLSearchParams(location.search);
@@ -271,6 +272,37 @@ function meetingRuleImagesHtml() {
   </div>`;
 }
 
+function walterBonesHtml(count) {
+  const safe = Math.max(0, Math.min(999, Number(count) || 0));
+  if (!safe) return "";
+  const shown = Math.min(safe, 18);
+  return `${"🦴".repeat(shown)}${safe > shown ? ` <span class="walter-more">+${safe - shown}</span>` : ""}`;
+}
+
+function walterFeedPanelHtml() {
+  if (hostMode || state?.meta?.status !== "round_open" || (state?.meta?.round || 0) < 8) return "";
+  const self = selfState();
+  if (!self?.alive) return "";
+
+  const fedThisRound = self.walterFeedRound === state.meta.round;
+  const count = fedThisRound ? Number(self.walterFeedCount || 0) : 0;
+  const status = count > 0
+    ? `Walter er matet ${walterBonesHtml(count)}`
+    : "Walter er sulten — trykk på ham før du leverer passordet.";
+
+  return `<div class="walter-feed-card ${count > 0 ? "fed" : "hungry"}">
+    <div class="walter-feed-copy">
+      <div class="eyebrow">REGEL 8 · MAT WALTER</div>
+      <h2>Husk Walter 🐶</h2>
+      <p>Trykk på Walter minst én gang før du leverer passordet. Du kan mate ham flere ganger hvis du vil.</p>
+    </div>
+    <button id="feed-walter" class="walter-feed-button" type="button" aria-label="Mat Walter">
+      <img src="${walterImage}" alt="Walter" draggable="false">
+    </button>
+    <div id="walter-feed-status" class="walter-feed-status" aria-live="polite">${status}</div>
+  </div>`;
+}
+
 function rulesHtml() {
   const rules = state?.rules || [];
   if (!rules.length) return `<p class="muted">Rules appear when the host starts the game.</p>`;
@@ -396,7 +428,7 @@ function playerPanel() {
     const time = secondsLeft();
     const previousPassword = player?.lastPassword || "";
 
-    return `<div class="card accent">
+    return `${walterFeedPanelHtml()}<div class="card accent">
       <div class="submit-head">
         <h2>Submit your password</h2>
         <div id="countdown" class="countdown">${time ?? "—"}s</div>
@@ -588,15 +620,21 @@ function hostStatsHtml() {
   if (status === "round_open") {
     const active = state.players.filter(p => p.alive);
     const submitted = active.filter(p => p.hasSubmitted).length;
+    const walterFed = state.meta.round >= 8
+      ? active.filter(p => p.walterFeedRound === state.meta.round && Number(p.walterFeedCount || 0) > 0).length
+      : null;
+
+    const liveRows = [
+      ["Spillere i runden", active.length],
+      ["Har levert", submitted],
+      ["Venter på innsending", active.length - submitted]
+    ];
+    if (walterFed != null) liveRows.push(["Har matet Walter", walterFed]);
 
     return `<div class="card">
       <div class="eyebrow">LIVE ROUND STATS</div>
       <h2 style="margin:.35rem 0 14px;">Round ${state.meta.round}</h2>
-      ${statRowsHtml([
-        ["Spillere i runden", active.length],
-        ["Har levert", submitted],
-        ["Venter på innsending", active.length - submitted]
-      ])}
+      ${statRowsHtml(liveRows)}
       <p class="muted tiny">Ingen får vite om passordet er godkjent før runden avsluttes.</p>
     </div>`;
   }
@@ -828,6 +866,47 @@ function bindEvents() {
     } catch (err) {
       lastError = err.message;
       render();
+    }
+  });
+
+  document.querySelector("#feed-walter")?.addEventListener("click", async e => {
+    const button = e.currentTarget;
+    if (!player || button.disabled) return;
+    lastError = "";
+    button.disabled = true;
+
+    try {
+      const data = await api({
+        action: "feed_walter",
+        playerId: player.id,
+        playerToken: player.token
+      });
+
+      const self = selfState();
+      if (self) {
+        self.walterFeedRound = data.walterFeedRound;
+        self.walterFeedCount = data.walterFeedCount;
+      }
+
+      const card = button.closest(".walter-feed-card");
+      const image = button.querySelector("img");
+      const status = card?.querySelector("#walter-feed-status");
+      card?.classList.remove("hungry");
+      card?.classList.add("fed");
+
+      if (status) {
+        status.innerHTML = `Walter er matet ${walterBonesHtml(data.walterFeedCount)}`;
+      }
+
+      image?.classList.remove("walter-jump");
+      void image?.offsetWidth;
+      image?.classList.add("walter-jump");
+      setTimeout(() => image?.classList.remove("walter-jump"), 900);
+    } catch (err) {
+      lastError = err.message;
+      render();
+    } finally {
+      if (button.isConnected) button.disabled = false;
     }
   });
 
