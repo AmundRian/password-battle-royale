@@ -1146,6 +1146,46 @@ const WEDDING_ANNIVERSARIES = [
 
 const SONG_TITLES = [...BEATLES_SONGS, ...QUEEN_SONGS, ...KILLERS_SONGS];
 
+// Rule 11: fixed Norwegian/English answer set for the five pictured animals.
+// normalizeLoose() removes spaces, hyphens and punctuation before matching,
+// so variants such as "duck-billed platypus" and "duck billed platypus" are equivalent.
+const PICTURE_ANIMALS = [
+  // Nebbdyr / platypus
+  "nebbdyr",
+  "nebdyr",
+  "platypus",
+  "platipus",
+  "duck billed platypus",
+  "duck-billed platypus",
+  "duckbill platypus",
+
+  // Maurpiggsvin / echidna. Also accept the common variant maurpinnsvin
+  // and a few forgiving spellings for the game.
+  "maurpiggsvin",
+  "maurpinnsvin",
+  "maurpinsvin",
+  "maur piggsvin",
+  "maur pinnsvin",
+  "echidna",
+  "ekidna",
+  "spiny anteater",
+
+  // Leopard
+  "leopard",
+  "leopart",
+
+  // Sommerfugl / butterfly. Sommerfuggel is a common informal misspelling.
+  "sommerfugl",
+  "sommerfuggel",
+  "sommerfugel",
+  "butterfly",
+
+  // Jerv / wolverine
+  "jerv",
+  "wolverine",
+  "wolverin"
+];
+
 export const RULES = [
   {
     id: "guest",
@@ -1186,6 +1226,10 @@ export const RULES = [
   {
     id: "anniversary",
     text: "Passordet ditt må inneholde navnet på et bryllupsjubileum. Du trenger ikke inkludere ordet «bryllup»."
+  },
+  {
+    id: "animals",
+    text: "Passordet ditt må inneholde navnet på minst ett av dyrene som vises på bildene. Norske og engelske navn godkjennes."
   }
 ];
 
@@ -1347,6 +1391,10 @@ export function validatePassword(password, round, options = {}) {
 
   if (maxRound >= 10 && !containsAnyLoose(p, WEDDING_ANNIVERSARIES)) {
     failures.push("Passordet må inneholde navnet på et bryllupsjubileum.");
+  }
+
+  if (maxRound >= 11 && !containsAnyLoose(p, PICTURE_ANIMALS)) {
+    failures.push("Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.");
   }
 
   return { valid: failures.length === 0, failures };
