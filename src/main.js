@@ -6,6 +6,10 @@ const hostMode = params.get("host") === "1";
 const storageKey = "pbr-player-v1";
 const hostStorageKey = "pbr-host-key-v1";
 
+const pokemonHintNames = new Set([
+  "tiva", "johan", "eskil", "vivi", "sissel", "erik", "arne", "hildekari", "stig"
+]);
+
 let state = null;
 let player = readJson(localStorage.getItem(storageKey));
 let hostKey = localStorage.getItem(hostStorageKey) || "";
@@ -25,6 +29,41 @@ function esc(v) {
     "'": "&#39;",
     '"': "&quot;"
   }[c]));
+}
+
+function normalizedNickname(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("nb-NO")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function hasPokemonHint() {
+  const name = selfState()?.name || player?.name || "";
+  return pokemonHintNames.has(normalizedNickname(name));
+}
+
+async function copyText(value) {
+  const text = String(value ?? "");
+  if (!text) return false;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const ok = document.execCommand("copy");
+  textarea.remove();
+  return ok;
 }
 
 function statusText(status) {
@@ -125,7 +164,15 @@ function rulesHtml() {
   if (!rules.length) return `<p class="muted">Rules appear when the host starts the game.</p>`;
 
   return `<ol class="rules">
-    ${rules.map((r, i) => `<li><span>${i + 1}</span>${esc(r.text)}</li>`).join("")}
+    ${rules.map((r, i) => {
+      const hint = r.id === "pokemon" && !hostMode && hasPokemonHint()
+        ? `<details class="rule-hint">
+            <summary>Hint til oss over 50 år</summary>
+            <div>Du kan bruke ett av disse alternativene: <strong>Mew</strong>, <strong>Muk</strong> eller <strong>Ekans</strong>.</div>
+          </details>`
+        : "";
+      return `<li><span>${i + 1}</span><div>${esc(r.text)}${hint}</div></li>`;
+    }).join("")}
   </ol>`;
 }
 
@@ -325,6 +372,10 @@ function roundResultsHtml() {
   const rankedPlayers = rankedResultPlayers(result.players || []);
   const finalRound = result.round >= state.totalRules && state.meta.status === "game_over";
   const winners = new Set(state.meta.winners || []);
+  const survivingLengths = rankedPlayers
+    .filter(p => p.survived && p.submitted && p.passwordLength != null)
+    .map(p => p.passwordLength);
+  const shortestSurvivorLength = survivingLengths.length ? Math.min(...survivingLengths) : null;
 
   return `<div class="card">
     <div class="card-title">
@@ -337,18 +388,24 @@ function roundResultsHtml() {
     <div class="players">
       ${rankedPlayers.map(p => {
         const isWinner = finalRound && winners.has(p.name);
+        const isShortestSurvivor = !finalRound && p.survived && p.submitted && p.passwordLength === shortestSurvivorLength;
         const rankText = p.displayRank ? `#${p.displayRank}` : "—";
         const lengthText = p.passwordLength != null ? `${p.passwordLength} tegn` : "Ingen innsending";
-        const resultText = isWinner ? "🏆 Vinner" : (p.survived ? (finalRound ? "✓ Fullførte" : "✓ Videre") : "✕ Ute");
-        const resultColor = isWinner || p.survived ? "#aaf1bd" : "#ffc1d0";
+        const resultText = isWinner
+          ? "🏆 Vinner"
+          : isShortestSurvivor
+            ? "★ Kortest"
+            : (p.survived ? (finalRound ? "✓ Fullførte" : "✓ Videre") : "✕ Ute");
+        const resultColor = isWinner || isShortestSurvivor ? "#ffe797" : (p.survived ? "#aaf1bd" : "#ffc1d0");
 
-        return `<div class="player ${p.survived ? "alive" : "dead"}" style="align-items:flex-start;">
+        return `<div class="player ${p.survived ? "alive" : "dead"} ${isShortestSurvivor ? "shortest" : ""}" style="align-items:flex-start;">
           <div style="min-width:44px;font-weight:800;font-size:1.05rem;">${rankText}</div>
           <div class="player-main" style="gap:4px;min-width:0;">
             <strong>${esc(p.name)} <small style="font-weight:600;">· ${esc(lengthText)}</small></strong>
-            <small class="mono" style="white-space:normal;overflow-wrap:anywhere;color:#d8dcef;">
-              ${p.password ? esc(p.password) : "Ingen innsending"}
-            </small>
+            <div class="password-result-line">
+              <small class="mono password-result">${p.password ? esc(p.password) : "Ingen innsending"}</small>
+              ${p.password ? `<button type="button" class="secondary copy-button" data-copy-player="${esc(p.id)}">Kopier</button>` : ""}
+            </div>
             ${hostMode && !p.survived && p.failures?.length
               ? `<small style="white-space:normal;">
                   ${p.failures.map(f => `${esc(f.rule)}: ${esc(f.text)}`).join("<br>")}
@@ -492,11 +549,10 @@ function hostPanel() {
     </label>
 
     ${meta.status === "lobby"
-      ? `<label>Round timer (seconds)
-          <input id="timer-value" type="number" min="20" max="300" value="${meta.roundSeconds || 60}">
+      ? `<label>Rundetid for runde 1 (sekunder)
+          <input id="timer-value" type="number" min="10" max="600" value="${meta.roundSeconds || 60}">
         </label>
         <div class="actions">
-          <button data-host-action="set_timer">Save timer</button>
           <button data-host-action="start">Start game</button>
         </div>`
       : ""}
@@ -506,7 +562,10 @@ function hostPanel() {
       : ""}
 
     ${meta.status === "results"
-      ? `<div class="actions"><button data-host-action="next_round">Start next round</button></div>`
+      ? `<label>Rundetid for runde ${Math.min((meta.round || 0) + 1, state.totalRules)} (sekunder)
+          <input id="timer-value" type="number" min="10" max="600" value="${meta.roundSeconds || 60}">
+        </label>
+        <div class="actions"><button data-host-action="next_round">Start next round</button></div>`
       : ""}
 
     <div class="actions">
@@ -526,7 +585,7 @@ function render() {
     app.innerHTML = `<main>
       <header>
         <div>
-          <div class="eyebrow">NO TWITCH NEEDED</div>
+          <div class="eyebrow">Passordet til Siris hjerte</div>
           <h1>Password<br>Battle Royale</h1>
         </div>
       </header>
@@ -551,7 +610,7 @@ function render() {
   app.innerHTML = `<main>
     <header>
       <div>
-        <div class="eyebrow">NO TWITCH NEEDED</div>
+        <div class="eyebrow">Passordet til Siris hjerte</div>
         <h1>Password<br>Battle Royale</h1>
       </div>
 
@@ -664,8 +723,8 @@ function bindEvents() {
       if (action === "reset" && !confirm("Reset the whole game and remove every player?")) return;
 
       try {
-        if (action === "set_timer") {
-          const seconds = Number(document.querySelector("#timer-value")?.value || 60);
+        if (action === "set_timer" || action === "start" || action === "next_round") {
+          const seconds = Number(document.querySelector("#timer-value")?.value || state?.meta?.roundSeconds || 60);
           const data = await api({ action, seconds });
           state = data.state;
         } else {
@@ -679,6 +738,24 @@ function bindEvents() {
         lastError = err.message;
         render();
       }
+    });
+  });
+
+
+  document.querySelectorAll("[data-copy-player]").forEach(button => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.copyPlayer;
+      const resultPlayer = state?.roundResults?.players?.find(p => p.id === id);
+      if (!resultPlayer?.password) return;
+
+      const copied = await copyText(resultPlayer.password);
+      if (!copied) return;
+
+      const original = button.textContent;
+      button.textContent = "Kopiert ✓";
+      setTimeout(() => {
+        if (button.isConnected) button.textContent = original;
+      }, 1400);
     });
   });
 }
