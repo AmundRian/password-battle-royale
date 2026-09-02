@@ -288,25 +288,17 @@ function walterFeedState() {
 
 // Runde 8 bruker den kompakte Walter-presentasjonen fra den første Walter-versjonen.
 // Fra og med runde 9 flyttes Walter til høyre for passordfeltet.
-function walterRoundEightPanelHtml() {
+function walterRoundEightRuleHtml() {
   if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 8) return "";
   const { self, count } = walterFeedState();
   if (!self?.alive) return "";
+  const status = count > 0 ? `Walter er matet ${walterBonesHtml(count)}` : "";
 
-  const status = count > 0
-    ? `Walter er matet ${walterBonesHtml(count)}`
-    : "Walter er sulten — trykk på ham før du leverer passordet.";
-
-  return `<div class="walter-feed-card ${count > 0 ? "fed" : "hungry"}">
-    <div class="walter-feed-copy">
-      <div class="eyebrow">REGEL 8 · MAT WALTER</div>
-      <h2>Husk Walter 🐶</h2>
-      <p>Trykk på Walter minst én gang før du leverer passordet. Du kan mate ham flere ganger hvis du vil.</p>
-    </div>
-    <button id="feed-walter" class="walter-feed-button" type="button" aria-label="Mat Walter">
+  return `<div class="walter-interaction walter-inline walter-rule8-compact ${count > 0 ? "fed" : "hungry"}">
+    <button id="feed-walter" class="walter-inline-button" type="button" aria-label="Mat Walter">
       <img src="${walterImage}" alt="Walter" draggable="false">
     </button>
-    <div id="walter-feed-status" class="walter-feed-status" aria-live="polite">${status}</div>
+    <div id="walter-feed-status" class="walter-inline-status" aria-live="polite" ${status ? "" : "hidden"}>${status}</div>
   </div>`;
 }
 
@@ -345,8 +337,9 @@ function rulesHtml() {
       const media = r.id === "animals"
         ? animalRuleImagesHtml()
         : (r.id === "meeting_year" ? meetingRuleImagesHtml() : "");
-      const withMedia = r.id === "animals" || r.id === "meeting_year";
-      return `<li class="${withMedia ? "rule-with-images" : ""}"><span>${number}</span><div>${esc(r.text)}${media}${hint}</div></li>`;
+      const walter = r.id === "walter" && state?.meta?.round === 8 ? walterRoundEightRuleHtml() : "";
+      const withMedia = r.id === "animals" || r.id === "meeting_year" || Boolean(walter);
+      return `<li class="${withMedia ? "rule-with-images" : ""}"><span>${number}</span><div>${esc(r.text)}${media}${hint}${walter}</div></li>`;
     }).join("")}
   </ol>`;
 }
@@ -455,7 +448,7 @@ function playerPanel() {
     const time = secondsLeft();
     const previousPassword = player?.lastPassword || "";
 
-    return `${walterRoundEightPanelHtml()}<div class="card accent">
+    return `<div class="card accent">
       <div class="submit-head">
         <h2>Submit your password</h2>
         <div id="countdown" class="countdown">${time ?? "—"}s</div>
