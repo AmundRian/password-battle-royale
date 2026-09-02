@@ -104,13 +104,15 @@ const FAILURE_LABELS = new Map([
   ["Passordet må inneholde navnet på en europeisk hovedstad.", "Regel 3.2"],
   ["Passordet må inneholde minst ett kodeord fra NATOs fonetiske alfabet.", "Regel 4"],
   ["Passordet må inneholde en hovedingrediens i pannekakerøre.", "Regel 5.1"],
-  ["Passordet må inneholde minst én av bokstavene W, X, Y, Z, Æ, Ø eller Å.", "Regel 5.2"],
-  ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 6"],
-  ["Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.", "Regel 7"],
-  ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 8"],
-  ["Passordet må inneholde tittelen på en film med Brad Pitt.", "Regel 9"],
-  ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 10"],
-  ["Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.", "Regel 11"]
+  ["Passordet må inneholde minst én av de syv siste bokstavene i det norske alfabetet.", "Regel 5.2"],
+  ["Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.", "Regel 6"],
+  ["Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.", "Regel 7"],
+  ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 8"],
+  ["Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.", "Regel 9"],
+  ["Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.", "Regel 10"],
+  ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 11"],
+  ["Passordet må inneholde tittelen på en film med Brad Pitt.", "Regel 12"],
+  ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 13"]
 ]);
 
 function detailForFailure(text) {
