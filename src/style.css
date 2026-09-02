@@ -208,3 +208,49 @@ button.copy-button {
 @media (max-width:520px) {
   .rules-card.theme-marius .rules li { transform:none !important; }
 }
+
+
+/* Rule 11 image challenge */
+.rule-with-images { align-items:start !important; }
+.animal-rule-gallery {
+  display:grid;
+  grid-template-columns:repeat(5, minmax(0, 1fr));
+  gap:8px;
+  margin-top:12px;
+}
+.animal-rule-image {
+  margin:0;
+  position:relative;
+  overflow:hidden;
+  border-radius:10px;
+  border:1px solid #353b52;
+  background:#0b0e17;
+  aspect-ratio:4 / 3;
+}
+.animal-rule-image img {
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.animal-rule-image figcaption {
+  position:absolute;
+  left:6px;
+  bottom:6px;
+  min-width:22px;
+  height:22px;
+  padding:0 6px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  background:rgba(8,10,18,.82);
+  color:#fff;
+  font-size:.72rem;
+  font-weight:900;
+}
+.theme-siri .animal-rule-image { border-color:#e8b6c6; }
+.theme-marius .animal-rule-image { border:3px dotted #ff1e00; }
+@media (max-width:760px) {
+  .animal-rule-gallery { grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .animal-rule-image:last-child { grid-column:span 2; aspect-ratio:2 / 1; }
+}
