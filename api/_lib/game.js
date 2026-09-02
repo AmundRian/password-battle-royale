@@ -83,6 +83,19 @@ const GUEST_NAMES = [
   "Jon",
   "Erlend"
 ];
+
+const POKEMON_HINT_NAMES = [
+  "Tiva",
+  "Johan",
+  "Eskil",
+  "Vivi",
+  "Sissel",
+  "Erik",
+  "Arne",
+  "Hilde-Kari",
+  "Stig"
+];
+
 const EUROPEAN_CAPITALS = [
   "Tirana",
   "Andorra la Vella",
@@ -1193,6 +1206,11 @@ function containsAnyLoose(password, accepted) {
   });
 }
 
+function hasPokemonHintAccess(playerName) {
+  const name = normalizeLoose(playerName);
+  return POKEMON_HINT_NAMES.some(value => normalizeLoose(value) === name);
+}
+
 function countPlainE(password) {
   return (String(password ?? "").match(/[eE]/g) || []).length;
 }
@@ -1267,7 +1285,7 @@ export async function savePlayer(player, redis = redisClient()) {
   await redis.hset(PLAYERS_KEY, { [id]: JSON.stringify(rest) });
 }
 
-export function validatePassword(password, round) {
+export function validatePassword(password, round, options = {}) {
   const maxRound = Math.max(0, Math.min(Number(round) || 0, RULES.length));
   const failures = [];
   const p = String(password ?? "");
@@ -1311,8 +1329,12 @@ export function validatePassword(password, round) {
     failures.push("Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.");
   }
 
-  if (maxRound >= 7 && !containsAnyLoose(p, GEN1_POKEMON)) {
-    failures.push("Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.");
+  if (maxRound >= 7) {
+    const standardPokemon = containsAnyLoose(p, GEN1_POKEMON);
+    const hintedMew = hasPokemonHintAccess(options.playerName) && containsAnyLoose(p, ["Mew"]);
+    if (!(standardPokemon || hintedMew)) {
+      failures.push("Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.");
+    }
   }
 
   if (maxRound >= 8 && !rCountMatchesEnding(p)) {
