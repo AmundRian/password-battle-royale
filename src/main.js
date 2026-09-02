@@ -43,6 +43,49 @@ function hasPokemonHint() {
   return pokemonHintNames.has(normalizedNickname(name));
 }
 
+function currentNickname() {
+  return selfState()?.name || player?.name || "";
+}
+
+function questionThemeClass() {
+  if (hostMode) return "";
+  const name = normalizedNickname(currentNickname());
+  if (name === "siri") return "theme-siri";
+  if (name === "marius") return "theme-marius";
+  return "";
+}
+
+function specialThemeIntroHtml() {
+  const theme = questionThemeClass();
+  if (theme === "theme-siri") {
+    return `<div class="theme-banner siri-banner">💍 Brudemodus aktivert · egne regler fortjener litt ekstra kjærlighet 💗</div>`;
+  }
+  if (theme === "theme-marius") {
+    return `<div class="theme-banner marius-banner">🤡 Marius-modus aktivert · stygt tema til en stygg fyr</div>`;
+  }
+  return "";
+}
+
+function mariusBetweenRoundsHtml() {
+  if (hostMode || normalizedNickname(currentNickname()) !== "marius") return "";
+  if (!["results", "game_over"].includes(state?.meta?.status)) return "";
+
+  const messages = [
+    "Stygg font til en stygg fyr. Akkurat som bestilt.",
+    "Marius, du overlevde. Estetikken gjorde ikke.",
+    "Passordet ditt er heldigvis penere enn temaet ditt.",
+    "Selv Comic Sans synes dette begynner å bli stygt.",
+    "Sterk innsats, Marius. Svakt visuelt uttrykk.",
+    "Du er fortsatt med, din stygge rakker.",
+    "Pokémonene ba om å slippe å se dette temaet.",
+    "Det blir ikke penere, Marius. Bare vanskeligere.",
+    "Brad Pitt har ikke godkjent dette designet.",
+    "Finale! Mot alle odds overlevde både du og dette grusomme temaet."
+  ];
+  const index = Math.max(0, Math.min(messages.length - 1, (state?.meta?.round || 1) - 1));
+  return `<div class="card marius-roast"><strong>💩 Marius-melding:</strong> ${esc(messages[index])}</div>`;
+}
+
 async function copyText(value) {
   const text = String(value ?? "");
   if (!text) return false;
@@ -217,23 +260,23 @@ function rankedResultPlayers(players = []) {
     ...p,
     passwordLength: p.passwordLength ?? (p.password ? [...String(p.password)].length : null)
   })).sort((a, b) => {
+    // Surviving players always rank above players eliminated in this round.
+    if (a.survived !== b.survived) return Number(b.survived) - Number(a.survived);
     if (a.submitted !== b.submitted) return Number(b.submitted) - Number(a.submitted);
     if (!a.submitted) return a.name.localeCompare(b.name, "nb");
     return a.passwordLength - b.passwordLength || a.name.localeCompare(b.name, "nb");
   });
 
-  let previousLength = null;
+  let previousKey = null;
   let previousRank = 0;
-  let submittedIndex = 0;
-
-  return ranked.map(p => {
+  return ranked.map((p, index) => {
     if (!p.submitted) return { ...p, displayRank: null };
-    submittedIndex += 1;
-    if (p.passwordLength !== previousLength) {
-      previousRank = submittedIndex;
-      previousLength = p.passwordLength;
+    const key = `${p.survived ? "alive" : "dead"}|${p.passwordLength}`;
+    if (key !== previousKey) {
+      previousRank = index + 1;
+      previousKey = key;
     }
-    return { ...p, displayRank: p.rank ?? previousRank };
+    return { ...p, displayRank: previousRank };
   });
 }
 
@@ -383,7 +426,7 @@ function roundResultsHtml() {
       <span>${result.remaining} videre</span>
     </div>
 
-    <p class="muted tiny">Rangert fra korteste til lengste passord. Passordene vises først etter at runden er avsluttet.</p>
+    <p class="muted tiny">Spillere som gikk videre vises før eliminerte, og innen hver gruppe rangeres kortere passord først. Trykker du «Kopier», blir det valgte passordet automatisk utgangspunktet ditt i neste runde.</p>
 
     <div class="players">
       ${rankedPlayers.map(p => {
@@ -420,6 +463,36 @@ function roundResultsHtml() {
     ${finalRound && state.meta.winningPasswordLength != null
       ? `<p class="muted tiny"><strong>Vinnerkriterium:</strong> Blant deltakerne som bestod regel 10, vinner korteste passord. Ved lik lengde blir det delt seier.</p>`
       : ""}
+  </div>`;
+}
+
+function overallRankingHtml() {
+  if (!["results", "game_over"].includes(state?.meta?.status)) return "";
+  const rows = state?.leaderboard || [];
+  if (!rows.length) return "";
+
+  return `<div class="card overall-ranking">
+    <div class="card-title">
+      <h2>Samlet rangering</h2>
+      <span>${rows.length} spillere</span>
+    </div>
+    <p class="muted tiny">Spillere som fortsatt er med rangeres øverst. Blant eliminerte rangeres den som kom lengst høyest. Innen samme elimineringsrunde rangeres kortere passord foran lengre.</p>
+    <div class="players">
+      ${rows.map(p => {
+        const status = p.alive
+          ? (state.meta.status === "game_over" ? "Fullførte" : "Videre")
+          : `Ute i runde ${p.eliminatedRound ?? "—"}`;
+        const length = p.passwordLength != null ? `${p.passwordLength} tegn` : "Ingen innsending";
+        return `<div class="player leaderboard-row ${p.alive ? "alive" : "dead"}">
+          <div class="leaderboard-rank">#${p.rank}</div>
+          <div class="player-main">
+            <strong>${esc(p.name)}</strong>
+            <small>${esc(status)} · ${esc(length)}</small>
+          </div>
+          <div class="dot"></div>
+        </div>`;
+      }).join("")}
+    </div>
   </div>`;
 }
 
@@ -628,16 +701,19 @@ function render() {
 
     <section class="grid">
       <div>
-        <div class="card rules-card">
+        <div class="card rules-card ${questionThemeClass()}">
           <div class="card-title">
             <h2>Active rules</h2>
             <span>${meta.round}/${state.totalRules}</span>
           </div>
+          ${specialThemeIntroHtml()}
           ${rulesHtml()}
         </div>
 
         ${playerPanel()}
+        ${mariusBetweenRoundsHtml()}
         ${roundResultsHtml()}
+        ${overallRankingHtml()}
       </div>
 
       <aside>
@@ -748,14 +824,20 @@ function bindEvents() {
       const resultPlayer = state?.roundResults?.players?.find(p => p.id === id);
       if (!resultPlayer?.password) return;
 
-      const copied = await copyText(resultPlayer.password);
-      if (!copied) return;
+      // Copy to the clipboard AND make this the player's starting password next round.
+      // If the player does not click a copy button, their own previous password remains the default.
+      await copyText(resultPlayer.password);
+
+      if (!hostMode && player) {
+        player = { ...player, lastPassword: resultPlayer.password };
+        localStorage.setItem(storageKey, JSON.stringify(player));
+      }
 
       const original = button.textContent;
-      button.textContent = "Kopiert ✓";
+      button.textContent = hostMode ? "Kopiert ✓" : "Valgt til neste runde ✓";
       setTimeout(() => {
         if (button.isConnected) button.textContent = original;
-      }, 1400);
+      }, 1800);
     });
   });
 }
