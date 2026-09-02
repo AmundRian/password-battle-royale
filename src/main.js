@@ -1,4 +1,9 @@
 import "./style.css";
+import jervImage from "./jerv.webp";
+import maurpinnsvinImage from "./maurpinnsvin.webp";
+import leopardImage from "./leopard.webp";
+import sommerfuglImage from "./sommerfugl.webp";
+import nebbdyrImage from "./nebbdyr.webp";
 
 const app = document.querySelector("#app");
 const params = new URLSearchParams(location.search);
@@ -80,6 +85,7 @@ function mariusBetweenRoundsHtml() {
     "Pokémonene ba om å slippe å se dette temaet.",
     "Det blir ikke penere, Marius. Bare vanskeligere.",
     "Brad Pitt har ikke godkjent dette designet.",
+    "Du er fortsatt med. Nå gjenstår bare siste hinder for både deg og dette grusomme temaet.",
     "Finale! Mot alle odds overlevde både du og dette grusomme temaet."
   ];
   const index = Math.max(0, Math.min(messages.length - 1, (state?.meta?.round || 1) - 1));
@@ -202,6 +208,25 @@ function secondsLeft() {
   return Math.max(0, Math.ceil((state.meta.deadline - Date.now()) / 1000));
 }
 
+function animalRuleImagesHtml() {
+  const animals = [
+    { src: jervImage, label: "Dyr 1" },
+    { src: maurpinnsvinImage, label: "Dyr 2" },
+    { src: leopardImage, label: "Dyr 3" },
+    { src: sommerfuglImage, label: "Dyr 4" },
+    { src: nebbdyrImage, label: "Dyr 5" }
+  ];
+
+  return `<div class="animal-rule-gallery" aria-label="Fem dyrebilder til regel 11">
+    ${animals.map((animal, index) => `
+      <figure class="animal-rule-image">
+        <img src="${animal.src}" alt="${animal.label} i regel 11" loading="eager">
+        <figcaption>${index + 1}</figcaption>
+      </figure>
+    `).join("")}
+  </div>`;
+}
+
 function rulesHtml() {
   const rules = state?.rules || [];
   if (!rules.length) return `<p class="muted">Rules appear when the host starts the game.</p>`;
@@ -214,7 +239,8 @@ function rulesHtml() {
             <div>Du kan bruke ett av disse alternativene: <strong>Mew</strong>, <strong>Muk</strong> eller <strong>Ekans</strong>.</div>
           </details>`
         : "";
-      return `<li><span>${i + 1}</span><div>${esc(r.text)}${hint}</div></li>`;
+      const media = r.id === "animals" ? animalRuleImagesHtml() : "";
+      return `<li class="${r.id === "animals" ? "rule-with-images" : ""}"><span>${i + 1}</span><div>${esc(r.text)}${media}${hint}</div></li>`;
     }).join("")}
   </ol>`;
 }
@@ -461,7 +487,7 @@ function roundResultsHtml() {
     </div>
 
     ${finalRound && state.meta.winningPasswordLength != null
-      ? `<p class="muted tiny"><strong>Vinnerkriterium:</strong> Blant deltakerne som bestod regel 10, vinner korteste passord. Ved lik lengde blir det delt seier.</p>`
+      ? `<p class="muted tiny"><strong>Vinnerkriterium:</strong> Blant deltakerne som bestod alle reglene, vinner korteste passord. Ved lik lengde blir det delt seier.</p>`
       : ""}
   </div>`;
 }
