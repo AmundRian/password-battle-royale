@@ -109,7 +109,8 @@ const FAILURE_LABELS = new Map([
   ["Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.", "Regel 7"],
   ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 8"],
   ["Passordet må inneholde tittelen på en film med Brad Pitt.", "Regel 9"],
-  ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 10"]
+  ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 10"],
+  ["Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.", "Regel 11"]
 ]);
 
 function detailForFailure(text) {
