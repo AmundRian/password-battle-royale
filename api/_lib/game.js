@@ -1404,6 +1404,10 @@ export const RULES = [
     text: "Passordet ditt må inneholde årstallet da personene på bildene møtte hverandre for første gang."
   },
   {
+    id: "walter",
+    text: "Du må huske å mate Walter minst én gang hver runde. Trykk på Walter før du leverer passordet ditt. Glemmer du det, blir ikke passordet godkjent."
+  },
+  {
     id: "song",
     text: "Passordet ditt må inneholde navnet på en låt av The Beatles, Queen eller The Killers."
   },
@@ -1414,6 +1418,10 @@ export const RULES = [
   {
     id: "mesternes",
     text: "Passordet ditt må inneholde initialene til en deltaker fra «Mesternes mester». Initialene må skrives med store bokstaver."
+  },
+  {
+    id: "digit_sum_even",
+    text: "Summen av alle tallene i passordet ditt må være et partall."
   },
   {
     id: "r_count",
@@ -1478,6 +1486,12 @@ function rCountMatchesEnding(password) {
   const match = p.match(/(\d+)$/);
   if (!match) return false;
   return match[1] === String(count);
+}
+
+function digitSumIsEven(password) {
+  const digits = String(password ?? "").match(/\d/g) || [];
+  const sum = digits.reduce((total, digit) => total + Number(digit), 0);
+  return sum % 2 === 0;
 }
 
 function parseValue(value) {
@@ -1578,11 +1592,13 @@ export function validatePassword(password, round, options = {}) {
     failures.push("Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.");
   }
 
-  if (maxRound >= 8 && !containsAnyLoose(p, SONG_TITLES)) {
+  // Regel 8 (Walter) valideres server-side mot spillerens mater-status for runden.
+
+  if (maxRound >= 9 && !containsAnyLoose(p, SONG_TITLES)) {
     failures.push("Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.");
   }
 
-  if (maxRound >= 9) {
+  if (maxRound >= 10) {
     const standardPokemon = containsAnyLoose(p, GEN1_POKEMON);
     const hintedMew = hasPokemonHintAccess(options.playerName) && containsAnyLoose(p, ["Mew"]);
     if (!(standardPokemon || hintedMew)) {
@@ -1590,19 +1606,23 @@ export function validatePassword(password, round, options = {}) {
     }
   }
 
-  if (maxRound >= 10 && !hasMesternesMesterInitials(p)) {
+  if (maxRound >= 11 && !hasMesternesMesterInitials(p)) {
     failures.push("Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.");
   }
 
-  if (maxRound >= 11 && !rCountMatchesEnding(p)) {
+  if (maxRound >= 12 && !digitSumIsEven(p)) {
+    failures.push("Summen av alle tallene i passordet må være et partall.");
+  }
+
+  if (maxRound >= 13 && !rCountMatchesEnding(p)) {
     failures.push("Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.");
   }
 
-  if (maxRound >= 12 && !containsAnyLoose(p, BRAD_PITT_FILMS)) {
+  if (maxRound >= 14 && !containsAnyLoose(p, BRAD_PITT_FILMS)) {
     failures.push("Passordet må inneholde tittelen på en film med Brad Pitt.");
   }
 
-  if (maxRound >= 13 && !containsAnyLoose(p, WEDDING_ANNIVERSARIES)) {
+  if (maxRound >= 15 && !containsAnyLoose(p, WEDDING_ANNIVERSARIES)) {
     failures.push("Passordet må inneholde navnet på et bryllupsjubileum.");
   }
 
