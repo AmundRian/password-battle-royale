@@ -53,10 +53,53 @@ function shortestPasswordWinners(players) {
   };
 }
 
+function overallLeaderboard(meta, players) {
+  if (!["results", "game_over"].includes(meta?.status)) return [];
+
+  const ranked = players.map(p => ({
+    id: p.id,
+    name: p.name,
+    alive: Boolean(p.alive),
+    eliminatedRound: p.eliminatedRound ?? null,
+    submitted: Boolean(p.submission),
+    passwordLength: passwordLength(p.submission)
+  })).sort((a, b) => {
+    // Anyone still alive always ranks above an eliminated player.
+    if (a.alive !== b.alive) return Number(b.alive) - Number(a.alive);
+
+    // Among eliminated players, surviving longer is more important than length.
+    if (!a.alive && a.eliminatedRound !== b.eliminatedRound) {
+      return (b.eliminatedRound ?? -1) - (a.eliminatedRound ?? -1);
+    }
+
+    // Within the same status/elimination round, a submitted shorter password ranks higher.
+    if (a.submitted !== b.submitted) return Number(b.submitted) - Number(a.submitted);
+    const aLength = a.passwordLength ?? Number.POSITIVE_INFINITY;
+    const bLength = b.passwordLength ?? Number.POSITIVE_INFINITY;
+    return aLength - bLength || a.name.localeCompare(b.name, "nb");
+  });
+
+  let previousKey = null;
+  let previousRank = 0;
+  return ranked.map((p, index) => {
+    const key = [
+      p.alive ? "alive" : "dead",
+      p.alive ? "" : (p.eliminatedRound ?? ""),
+      p.submitted ? "submitted" : "none",
+      p.passwordLength ?? "none"
+    ].join("|");
+    if (key !== previousKey) {
+      previousRank = index + 1;
+      previousKey = key;
+    }
+    return { ...p, rank: previousRank };
+  });
+}
+
 const FAILURE_LABELS = new Map([
   ["Passordet må inneholde fornavnet på en gjest i bryllupet.", "Regel 1"],
   ["Passordet må inneholde minst én stor bokstav og ett tall.", "Regel 2.1"],
-  ["Passordet må inneholde minst ett romertall: I, V, X, L, C, D eller M.", "Regel 2.2"],
+  ["Passordet må inneholde minst ett romertall.", "Regel 2.2"],
   ["Passordet må inneholde nøyaktig fem av bokstaven «e».", "Regel 3.1"],
   ["Passordet må inneholde navnet på en europeisk hovedstad.", "Regel 3.2"],
   ["Passordet må inneholde minst ett kodeord fra NATOs fonetiske alfabet.", "Regel 4"],
@@ -100,6 +143,7 @@ function publicState(meta, players) {
     rules: RULES.slice(0, safeMeta.round),
     totalRules: RULES.length,
     roundResults: revealResults ? lastRound : null,
+    leaderboard: revealResults ? overallLeaderboard(safeMeta, players) : [],
     roundHistory: (roundHistory || []).map(result => ({
       round: result.round,
       started: result.started,
