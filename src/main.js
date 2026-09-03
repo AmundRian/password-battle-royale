@@ -229,6 +229,28 @@ function restoreInputState(saved) {
   }
 }
 
+function fitPasswordInput(input) {
+  if (!(input instanceof HTMLInputElement)) return;
+  const maxPx = 20;
+  const minPx = 10;
+  input.style.fontSize = `${maxPx}px`;
+  // Use the rendered scroll width so the complete password stays visible as long as possible.
+  const available = Math.max(1, input.clientWidth - 10);
+  const needed = Math.max(1, input.scrollWidth - 10);
+  if (needed > available) {
+    const fitted = Math.max(minPx, Math.min(maxPx, maxPx * available / needed));
+    input.style.fontSize = `${fitted.toFixed(2)}px`;
+  }
+}
+
+function setupPasswordInputAutoFit() {
+  const input = document.querySelector('input[name="password"]');
+  if (!(input instanceof HTMLInputElement)) return;
+  const resize = () => fitPasswordInput(input);
+  input.addEventListener("input", resize);
+  requestAnimationFrame(resize);
+}
+
 function selfState() {
   return state?.players?.find(p => p.id === player?.id) || null;
 }
@@ -287,7 +309,7 @@ function walterFeedState() {
 }
 
 // Runde 8 bruker den kompakte Walter-presentasjonen fra den første Walter-versjonen.
-// Fra og med runde 9 flyttes Walter til høyre for passordfeltet.
+// Fra og med runde 9 vises Walter kompakt under passordfeltet.
 function walterRoundEightRuleHtml() {
   if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 8) return "";
   const { self, count } = walterFeedState();
@@ -458,6 +480,7 @@ function playerPanel() {
         <div class="password-entry-row ${state.meta.round >= 9 ? "with-walter" : ""}">
           <label>Password
             <input
+              class="password-input"
               name="password"
               maxlength="200"
               autocomplete="off"
@@ -555,6 +578,16 @@ function roundResultsHtml() {
     </div>
 
     <p class="muted tiny">Spillere som gikk videre vises før eliminerte, og innen hver gruppe rangeres kortere passord først. Trykker du «Kopier», blir det valgte passordet automatisk utgangspunktet ditt i neste runde.</p>
+
+    ${result.rpsSummary ? `<div class="rps-summary">
+      <strong>Stein · saks · papir</strong>
+      <div class="rps-counts">
+        ${result.rpsSummary.counts.map(item => `<span class="${result.rpsSummary.leaders.some(x => x.id === item.id) ? "leader" : ""}">${esc(item.label)}: ${item.count}</span>`).join("")}
+      </div>
+      <small>${result.rpsSummary.leaders.length
+        ? `Videre: ${result.rpsSummary.leaders.map(x => esc(x.label)).join(" og ")}`
+        : "Ingen gyldige valg ble registrert."}</small>
+    </div>` : ""}
 
     <div class="players">
       ${rankedPlayers.map(p => {
@@ -681,6 +714,14 @@ function hostStatsHtml() {
         ["Videre", result.remaining],
         ["Korteste innsendte passord", result.shortestPasswordLength != null ? `${result.shortestPasswordLength} tegn` : "—"]
       ])}
+
+      ${result.rpsSummary ? `<div class="rps-summary host-rps-summary">
+        <strong>Regel 14 · stemmefordeling</strong>
+        <div class="rps-counts">
+          ${result.rpsSummary.counts.map(item => `<span class="${result.rpsSummary.leaders.some(x => x.id === item.id) ? "leader" : ""}">${esc(item.label)}: ${item.count}</span>`).join("")}
+        </div>
+        <small>Videre: ${result.rpsSummary.leaders.map(x => esc(x.label)).join(" og ") || "—"}</small>
+      </div>` : ""}
 
       <div style="height:14px;"></div>
       <h2 style="margin-bottom:10px;">Regelbrudd</h2>
@@ -874,6 +915,8 @@ function render() {
 }
 
 function bindEvents() {
+  setupPasswordInputAutoFit();
+
   document.querySelector("#join-form")?.addEventListener("submit", async e => {
     e.preventDefault();
     lastError = "";
@@ -1036,4 +1079,8 @@ function tick() {
 refresh();
 polling = setInterval(refresh, 2000);
 setInterval(tick, 250);
+window.addEventListener("resize", () => {
+  const input = document.querySelector('input[name="password"]');
+  if (input) fitPasswordInput(input);
+});
 window.addEventListener("beforeunload", () => clearInterval(polling));
