@@ -437,26 +437,33 @@ body.player-theme-marie::before {
 .theme-siri + .walter-feed-card,
 .player-theme-marie .walter-feed-card { border-color:rgba(255,111,205,.5); }
 
-/* Fra runde 9: Walter står kompakt til høyre for passordfeltet. */
+/* Fra runde 9: passordfeltet beholder full bredde, Walter står kompakt under feltet. */
 .password-entry-row {
   display:grid;
   gap:10px;
-  align-items:end;
+  align-items:start;
 }
 .password-entry-row.with-walter {
-  grid-template-columns:minmax(0, 1fr) 160px;
-  gap:14px;
-  align-items:end;
+  grid-template-columns:minmax(0, 1fr);
+  gap:8px;
+  align-items:start;
 }
-.password-entry-row.with-walter > label { align-self:end; min-width:0; }
+.password-entry-row.with-walter > label { min-width:0; width:100%; }
+.password-input {
+  width:100%;
+  min-width:0;
+  font-size:20px;
+  line-height:1.25;
+  transition:font-size .08s linear;
+}
 .walter-interaction { min-width:0; }
 .walter-inline {
   width:160px;
   display:grid;
   justify-items:center;
-  align-self:end;
-  justify-self:end;
+  justify-self:start;
   gap:5px;
+  margin-top:2px;
 }
 .walter-inline-button {
   width:160px;
@@ -519,13 +526,10 @@ body.player-theme-marie::before {
 }
 
 @media (max-width:760px) {
-  /* Runde 8: Walter beholder samme kompakte størrelse som fra runde 9. */
   .walter-feed-card { grid-template-columns:minmax(0,1fr) 125px; gap:9px; }
   .walter-feed-button { width:125px; min-height:116px; }
   .walter-feed-button img { width:auto; height:138px; max-width:120px; }
 
-  /* Behold Walter på høyre side også på smalere skjermer. */
-  .password-entry-row.with-walter { grid-template-columns:minmax(0,1fr) 125px; gap:9px; }
   .walter-inline { width:125px; }
   .walter-inline-button { width:125px; min-height:116px; }
   .walter-inline-button img { height:138px; max-width:120px; }
@@ -537,13 +541,36 @@ body.player-theme-marie::before {
   .walter-feed-button { width:104px; min-height:100px; }
   .walter-feed-button img { height:118px; max-width:100px; }
 
-  .password-entry-row.with-walter { grid-template-columns:minmax(0,1fr) 104px; gap:7px; }
   .walter-inline,
   .walter-inline-button,
   .walter-inline-status { width:104px; }
   .walter-inline-button { min-height:100px; }
   .walter-inline-button img { height:118px; max-width:100px; }
 }
+
+.rps-summary {
+  margin:12px 0 16px;
+  padding:12px 14px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  background:rgba(255,255,255,.035);
+}
+.rps-summary > strong { display:block; margin-bottom:8px; }
+.rps-counts { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:6px; }
+.rps-counts span {
+  padding:5px 9px;
+  border-radius:999px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.1);
+  font-size:.82rem;
+  font-weight:800;
+}
+.rps-counts span.leader {
+  background:#5a4a18;
+  border-color:#b6952d;
+  color:#ffe697;
+}
+.rps-summary small { color:#bfc5d7; }
 
 @media (prefers-reduced-motion: reduce) {
   .walter-feed-button img.walter-jump,
