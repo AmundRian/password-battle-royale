@@ -1,7 +1,7 @@
 import {
   RULES, NAMES_KEY, assertHostKey, createId, createToken, defaultMeta,
   getMeta, getPlayer, getPlayers, getRedis, resetGame,
-  savePlayer, setMeta, validatePassword
+  savePlayer, setMeta, validatePassword, getRpsChoice, rpsChoiceLabel
 } from "./_lib/game.js";
 
 function send(res, status, body) {
@@ -112,8 +112,9 @@ const FAILURE_LABELS = new Map([
   ["Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.", "Regel 11"],
   ["Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.", "Regel 12"],
   ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 13"],
-  ["Passordet må inneholde tittelen på en film med Brad Pitt.", "Regel 14"],
-  ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 15"]
+  ["Passordet må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir».", "Regel 14"],
+  ["Passordet må inneholde tittelen på en film med Brad Pitt.", "Regel 15"],
+  ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 16"]
 ]);
 
 function detailForFailure(text) {
@@ -155,7 +156,8 @@ function publicState(meta, players) {
       eliminated: result.eliminated,
       remaining: result.remaining,
       failureCounts: result.failureCounts || [],
-      shortestPasswordLength: result.shortestPasswordLength ?? null
+      shortestPasswordLength: result.shortestPasswordLength ?? null,
+      rpsSummary: result.rpsSummary || null
     })),
     players: players
       .map(p => ({
@@ -404,6 +406,9 @@ export default async function handler(req, res) {
         if (!firstByPassword.has(key)) firstByPassword.set(key, { id: p.id, name: p.name });
       }
 
+      // Build every ordinary failure first. The group-based rule 14 is resolved only
+      // after we know which otherwise-valid players chose stein/saks/papir.
+      const failureDetailsById = new Map();
       for (const p of playersAtStart) {
         const validation = validationById.get(p.id) || noSubmissionValidation();
         const failureDetails = (validation.failures || []).map(detailForFailure);
@@ -434,6 +439,52 @@ export default async function handler(req, res) {
           }
         }
 
+        failureDetailsById.set(p.id, failureDetails);
+      }
+
+      let rpsSummary = null;
+      if (meta.round >= 14) {
+        const counts = { stein: 0, saks: 0, papir: 0 };
+        const choiceById = new Map();
+
+        for (const p of playersAtStart) {
+          const failures = failureDetailsById.get(p.id) || [];
+          if (failures.length || !p.submission) continue;
+          const choice = getRpsChoice(p.submission);
+          if (!choice) continue;
+          choiceById.set(p.id, choice);
+          counts[choice] += 1;
+        }
+
+        const maxCount = Math.max(counts.stein, counts.saks, counts.papir);
+        const leaders = maxCount > 0
+          ? Object.keys(counts).filter(choice => counts[choice] === maxCount)
+          : [];
+
+        if (leaders.length) {
+          for (const p of playersAtStart) {
+            const failures = failureDetailsById.get(p.id) || [];
+            if (failures.length) continue;
+            const choice = choiceById.get(p.id);
+            if (!choice || leaders.includes(choice)) continue;
+
+            const leaderText = leaders.map(rpsChoiceLabel).join(" og ");
+            failures.push({
+              rule: "Regel 14",
+              text: `Du valgte ${rpsChoiceLabel(choice)}. ${leaderText} hadde flest valg denne runden.`
+            });
+          }
+        }
+
+        rpsSummary = {
+          counts: ["stein", "saks", "papir"].map(id => ({ id, label: rpsChoiceLabel(id), count: counts[id] })),
+          leaders: leaders.map(id => ({ id, label: rpsChoiceLabel(id) })),
+          maxCount
+        };
+      }
+
+      for (const p of playersAtStart) {
+        const failureDetails = failureDetailsById.get(p.id) || [];
         const eliminated = failureDetails.length > 0;
 
         p.alive = !eliminated;
@@ -451,6 +502,7 @@ export default async function handler(req, res) {
       const after = await getPlayers(redis);
       const survivors = after.filter(p => p.alive);
       const roundResult = makeRoundResult(meta.round, playersAtStart, after);
+      if (rpsSummary) roundResult.rpsSummary = rpsSummary;
       const roundHistory = [...(meta.roundHistory || []), roundResult];
 
       if (meta.round >= RULES.length) {
