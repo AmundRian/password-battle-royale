@@ -1428,6 +1428,10 @@ export const RULES = [
     text: "Passordet ditt må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet."
   },
   {
+    id: "rps_majority",
+    text: "Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Alternativet eller alternativene som flest deltakere velger, går videre."
+  },
+  {
     id: "brad_pitt",
     text: "Passordet ditt må inneholde tittelen på en film med Brad Pitt."
   },
@@ -1492,6 +1496,27 @@ function digitSumIsEven(password) {
   const digits = String(password ?? "").match(/\d/g) || [];
   const sum = digits.reduce((total, digit) => total + Number(digit), 0);
   return sum % 2 === 0;
+}
+
+const RPS_CHOICES = [
+  { id: "stein", label: "Stein", aliases: ["stein", "rock"] },
+  { id: "saks", label: "Saks", aliases: ["saks", "scissors"] },
+  { id: "papir", label: "Papir", aliases: ["papir", "paper"] }
+];
+
+export function getRpsChoice(password) {
+  const haystack = normalizeLoose(password);
+  const matched = RPS_CHOICES.filter(choice =>
+    choice.aliases.some(alias => {
+      const needle = normalizeLoose(alias);
+      return needle && haystack.includes(needle);
+    })
+  );
+  return matched.length === 1 ? matched[0].id : null;
+}
+
+export function rpsChoiceLabel(choiceId) {
+  return RPS_CHOICES.find(choice => choice.id === choiceId)?.label || choiceId || "";
 }
 
 function parseValue(value) {
@@ -1618,11 +1643,15 @@ export function validatePassword(password, round, options = {}) {
     failures.push("Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.");
   }
 
-  if (maxRound >= 14 && !containsAnyLoose(p, BRAD_PITT_FILMS)) {
+  if (maxRound >= 14 && !getRpsChoice(p)) {
+    failures.push("Passordet må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir».");
+  }
+
+  if (maxRound >= 15 && !containsAnyLoose(p, BRAD_PITT_FILMS)) {
     failures.push("Passordet må inneholde tittelen på en film med Brad Pitt.");
   }
 
-  if (maxRound >= 15 && !containsAnyLoose(p, WEDDING_ANNIVERSARIES)) {
+  if (maxRound >= 16 && !containsAnyLoose(p, WEDDING_ANNIVERSARIES)) {
     failures.push("Passordet må inneholde navnet på et bryllupsjubileum.");
   }
 
