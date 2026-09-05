@@ -13,6 +13,7 @@ const params = new URLSearchParams(location.search);
 const hostMode = params.get("host") === "1";
 const storageKey = "pbr-player-v1";
 const hostStorageKey = "pbr-host-key-v1";
+const gameSessionStorageKey = "pbr-game-session-v1";
 
 const pokemonHintNames = new Set([
   "tiva", "johan", "eskil", "vivi", "sissel", "erik", "arne", "hildekari", "stig"
@@ -21,12 +22,45 @@ const pokemonHintNames = new Set([
 let state = null;
 let player = readJson(localStorage.getItem(storageKey));
 let hostKey = localStorage.getItem(hostStorageKey) || "";
+let knownGameSessionId = localStorage.getItem(gameSessionStorageKey) || "";
 let lastError = "";
 let lastSubmit = null;
 let polling = null;
 
 function readJson(v) {
   try { return JSON.parse(v); } catch { return null; }
+}
+
+function clearStoredPlayerForNewGame() {
+  // Only clear participant state. HOST_KEY is deliberately preserved.
+  localStorage.removeItem(storageKey);
+  player = null;
+  lastSubmit = null;
+}
+
+function reconcileGameSession(nextState) {
+  const serverSessionId = String(nextState?.meta?.sessionId || "");
+  if (!serverSessionId) return;
+
+  // One-time migration for browsers that already contain a player from the
+  // pre-sessionId version. Keep that player only if it still exists server-side.
+  if (!knownGameSessionId) {
+    const localPlayerStillExists = Boolean(
+      player?.id && nextState?.players?.some(p => p.id === player.id)
+    );
+    if (player && !localPlayerStillExists) clearStoredPlayerForNewGame();
+    knownGameSessionId = serverSessionId;
+    localStorage.setItem(gameSessionStorageKey, serverSessionId);
+    return;
+  }
+
+  // A different id means the host performed a full reset. Remove the old
+  // participant session/password so the new wedding game starts cleanly.
+  if (knownGameSessionId !== serverSessionId) {
+    clearStoredPlayerForNewGame();
+    knownGameSessionId = serverSessionId;
+    localStorage.setItem(gameSessionStorageKey, serverSessionId);
+  }
 }
 
 function esc(v) {
@@ -176,6 +210,7 @@ async function refresh() {
     const previousStatus = state?.meta?.status ?? null;
 
     const nextState = await api();
+    reconcileGameSession(nextState);
     const changed = JSON.stringify(nextState) !== JSON.stringify(state);
 
     if (
