@@ -1533,13 +1533,34 @@ export function defaultMeta() {
     deadline: null,
     winner: null,
     winners: [],
+    // A new sessionId is created for every full game reset. Clients use this
+    // to distinguish rounds in the same game from a completely new game.
+    sessionId: crypto.randomUUID(),
     updatedAt: Date.now()
   };
 }
 
 export async function getMeta(redis = redisClient()) {
   const raw = await redis.get(META_KEY);
-  return parseValue(raw) || defaultMeta();
+  const parsed = parseValue(raw);
+
+  // First ever load: create and persist one stable session id instead of
+  // generating a different id on every GET request.
+  if (!parsed) {
+    const initial = defaultMeta();
+    await redis.set(META_KEY, JSON.stringify(initial));
+    return initial;
+  }
+
+  // Safe migration for an already-running wedding game created before
+  // sessionId existed. Add an id without resetting players or round state.
+  if (!parsed.sessionId) {
+    const upgraded = { ...parsed, sessionId: crypto.randomUUID(), updatedAt: Date.now() };
+    await redis.set(META_KEY, JSON.stringify(upgraded));
+    return upgraded;
+  }
+
+  return parsed;
 }
 
 export async function setMeta(meta, redis = redisClient()) {
