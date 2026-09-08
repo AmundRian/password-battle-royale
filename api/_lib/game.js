@@ -1374,71 +1374,38 @@ const PICTURE_ANIMALS = [
   "wolverin"
 ];
 
+const TWO_COLOR_FLAG_COUNTRIES = [
+  "Albania", "Austria", "Østerrike", "Oesterrike", "Bahrain", "Bangladesh",
+  "Canada", "Kanada", "China", "Kina", "Denmark", "Danmark", "Finland",
+  "Georgia", "Greece", "Hellas", "Honduras", "Indonesia", "Israel", "Japan",
+  "Kazakhstan", "Kasakhstan", "Kyrgyzstan", "Kirgisistan", "Latvia",
+  "North Macedonia", "Nord-Makedonia", "Nord Makedonia", "Micronesia", "Mikronesia",
+  "Monaco", "Morocco", "Marokko", "Nigeria", "Pakistan", "Palau", "Poland", "Polen",
+  "Qatar", "Saudi Arabia", "Saudi-Arabia", "Singapore", "Somalia", "Sweden", "Sverige",
+  "Switzerland", "Sveits", "Tonga", "Tunisia", "Turkey", "Tyrkia", "Türkiye", "Turkiye",
+  "Ukraine", "Ukraina", "Vietnam"
+];
+
+export const TIMELINE_ORDER = ["moon", "2017", "first_meeting", "2023", "walter_puppy", "engagement"];
+export const TIMELINE_SECRET = "noldus";
+
 export const RULES = [
-  {
-    id: "guest",
-    text: "Passordet ditt må inneholde fornavnet på en gjest i bryllupet."
-  },
-  {
-    id: "round2",
-    text: "Passordet ditt må inneholde minst én stor bokstav og ett tall, og minst ett romertall."
-  },
-  {
-    id: "round3",
-    text: "Passordet ditt må inneholde nøyaktig fem av bokstaven «e», og navnet på en europeisk hovedstad."
-  },
-  {
-    id: "nato",
-    text: "Passordet ditt må inneholde minst ett kodeord fra NATOs fonetiske alfabet."
-  },
-  {
-    id: "round5",
-    text: "Passordet ditt må inneholde en hovedingrediens i pannekakerøre, og minst én av de syv siste bokstavene i det norske alfabetet."
-  },
-  {
-    id: "animals",
-    text: "Passordet ditt må inneholde navnet på minst ett av dyrene som vises på bildene. Norske og engelske navn godkjennes."
-  },
-  {
-    id: "meeting_year",
-    text: "Passordet ditt må inneholde årstallet da personene på bildene møtte hverandre for første gang."
-  },
-  {
-    id: "walter",
-    text: "Fra og med denne runden må du mate Walter minst én gang i HVER runde før du sender inn passordet ditt. Trykk på Walter for å mate ham. Glemmer du å mate Walter i en senere runde, blir passordet ditt ikke godkjent."
-  },
-  {
-    id: "song",
-    text: "Passordet ditt må inneholde navnet på en låt av The Beatles, Queen eller The Killers."
-  },
-  {
-    id: "pokemon",
-    text: "Passordet ditt må inneholde navnet på en Pokémon fra de første 150 i Pokédex."
-  },
-  {
-    id: "mesternes",
-    text: "Passordet ditt må inneholde initialene til en deltaker fra «Mesternes mester». Initialene må skrives med store bokstaver."
-  },
-  {
-    id: "digit_sum_even",
-    text: "Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11."
-  },
-  {
-    id: "r_count",
-    text: "Passordet ditt må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet."
-  },
-  {
-    id: "rps_majority",
-    text: "Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Alternativet eller alternativene som flest deltakere velger, går videre."
-  },
-  {
-    id: "brad_pitt",
-    text: "Passordet ditt må inneholde tittelen på en film med Brad Pitt."
-  },
-  {
-    id: "anniversary",
-    text: "Passordet ditt må inneholde betegnelsen på et bryllupsjubileum. Du trenger ikke å inkludere ordet «bryllup»."
-  }
+  { id: "guest", text: "Passordet ditt må inneholde fornavnet på en gjest i bryllupet." },
+  { id: "round2", text: "Passordet ditt må inneholde minst én stor bokstav og ett tall, og minst ett romertall." },
+  { id: "round3", text: "Passordet ditt må inneholde nøyaktig fem av bokstaven «e», og navnet på en europeisk hovedstad." },
+  { id: "nato", text: "Passordet ditt må inneholde minst ett kodeord fra NATOs fonetiske alfabet." },
+  { id: "round5", text: "Passordet ditt må inneholde en hovedingrediens i pannekakerøre, og minst én av de syv siste bokstavene i det norske alfabetet." },
+  { id: "animals", text: "Passordet ditt må inneholde navnet på minst ett av dyrene som vises på bildene. Norske og engelske navn godkjennes." },
+  { id: "timeline", text: "Sett de seks hendelsene i riktig rekkefølge på tidslinjen og trykk «Sjekk tidslinje». Når du løser den, låses et hemmelig ord opp. Passordet ditt må inneholde dette ordet." },
+  { id: "meeting_year", text: "Passordet ditt må inneholde årstallet da personene på bildene møtte hverandre for første gang." },
+  { id: "walter", text: "Fra og med denne runden må du mate Walter minst én gang i HVER runde før du sender inn passordet ditt. Trykk på Walter for å mate ham. Glemmer du å mate Walter i en senere runde, blir passordet ditt ikke godkjent." },
+  { id: "song", text: "Passordet ditt må inneholde navnet på en låt av The Beatles, Queen eller The Killers." },
+  { id: "pokemon", text: "Passordet ditt må inneholde navnet på en Pokémon fra de første 150 i Pokédex." },
+  { id: "mesternes", text: "Passordet ditt må inneholde initialene til en deltaker fra «Mesternes mester». Initialene må skrives med store bokstaver." },
+  { id: "digit_sum_even", text: "Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11." },
+  { id: "r_count", text: "Passordet ditt må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet." },
+  { id: "two_color_flag", text: "Siri og Amund lurer på hvor de skal dra på bryllupsreise. Passordet ditt må inneholde navnet på et land som har et flagg med kun to farger." },
+  { id: "final_revision", text: "Finale! Gjør en siste revisjon av passordet ditt. Når runden avsluttes, vinner det korteste gyldige passordet. Ved lik lengde avgjør flest stjerner; fortsatt likt gir delt seier." }
 ];
 
 function normalizeLoose(value) {
@@ -1634,17 +1601,21 @@ export function validatePassword(password, round, options = {}) {
     failures.push("Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.");
   }
 
-  if (maxRound >= 7 && !p.includes("2018")) {
+  if (maxRound >= 7 && !containsAnyLoose(p, [TIMELINE_SECRET])) {
+    failures.push("Passordet må inneholde det hemmelige ordet som låses opp i tidslinjen.");
+  }
+
+  if (maxRound >= 8 && !p.includes("2018")) {
     failures.push("Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.");
   }
 
-  // Regel 8 (Walter) valideres server-side mot spillerens mater-status for runden.
+  // Regel 9 (Walter) valideres server-side mot spillerens mater-status for runden.
 
-  if (maxRound >= 9 && !containsAnyLoose(p, SONG_TITLES)) {
+  if (maxRound >= 10 && !containsAnyLoose(p, SONG_TITLES)) {
     failures.push("Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.");
   }
 
-  if (maxRound >= 10) {
+  if (maxRound >= 11) {
     const standardPokemon = containsAnyLoose(p, GEN1_POKEMON);
     const hintedMew = hasPokemonHintAccess(options.playerName) && containsAnyLoose(p, ["Mew"]);
     if (!(standardPokemon || hintedMew)) {
@@ -1652,29 +1623,23 @@ export function validatePassword(password, round, options = {}) {
     }
   }
 
-  if (maxRound >= 11 && !hasMesternesMesterInitials(p)) {
+  if (maxRound >= 12 && !hasMesternesMesterInitials(p)) {
     failures.push("Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.");
   }
 
-  if (maxRound >= 12 && !digitSumIsEven(p)) {
+  if (maxRound >= 13 && !digitSumIsEven(p)) {
     failures.push("Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.");
   }
 
-  if (maxRound >= 13 && !rCountMatchesEnding(p)) {
+  if (maxRound >= 14 && !rCountMatchesEnding(p)) {
     failures.push("Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.");
   }
 
-  if (maxRound >= 14 && !getRpsChoice(p)) {
-    failures.push("Passordet må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir».");
+  if (maxRound >= 15 && !containsAnyLoose(p, TWO_COLOR_FLAG_COUNTRIES)) {
+    failures.push("Passordet må inneholde navnet på et land som har et flagg med kun to farger.");
   }
 
-  if (maxRound >= 15 && !containsAnyLoose(p, BRAD_PITT_FILMS)) {
-    failures.push("Passordet må inneholde tittelen på en film med Brad Pitt.");
-  }
-
-  if (maxRound >= 16 && !containsAnyLoose(p, WEDDING_ANNIVERSARIES)) {
-    failures.push("Passordet må inneholde navnet på et bryllupsjubileum.");
-  }
+  // Regel 16 er en ren finalerevisjon. Ingen ny innholdsregel legges til.
 
   return { valid: failures.length === 0, failures };
 }
