@@ -307,8 +307,8 @@ const timelineCards = [
   { id: "2017", src: timeline2017, caption: "2017" },
   { id: "first_meeting", src: timelineFirstMeeting, caption: "Første gang Siri og Amund møttes" },
   { id: "2023", src: timeline2023, caption: "2023" },
-  { id: "walter_puppy", src: timelineWalterPuppy, caption: "Siri og Amund fikk Walter" },
-  { id: "engagement", src: timelineEngagement, caption: "Forlovelsen" }
+  { id: "engagement", src: timelineEngagement, caption: "Forlovelsen" },
+  { id: "walter_puppy", src: timelineWalterPuppy, caption: "Siri og Amund fikk Walter" }
 ];
 
 function shuffledTimelineIds() {
@@ -317,7 +317,7 @@ function shuffledTimelineIds() {
     const j = Math.floor(Math.random() * (i + 1));
     [ids[i], ids[j]] = [ids[j], ids[i]];
   }
-  const correct = ["moon", "2017", "first_meeting", "2023", "walter_puppy", "engagement"];
+  const correct = ["moon", "2017", "first_meeting", "2023", "engagement", "walter_puppy"];
   if (ids.every((id, index) => id === correct[index])) [ids[0], ids[1]] = [ids[1], ids[0]];
   return ids;
 }
