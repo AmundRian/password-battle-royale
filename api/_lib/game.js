@@ -1386,7 +1386,7 @@ const TWO_COLOR_FLAG_COUNTRIES = [
   "Ukraine", "Ukraina", "Vietnam"
 ];
 
-export const TIMELINE_ORDER = ["moon", "2017", "first_meeting", "2023", "walter_puppy", "engagement"];
+export const TIMELINE_ORDER = ["moon", "2017", "first_meeting", "2023", "engagement", "walter_puppy"];
 export const TIMELINE_SECRET = "noldus";
 
 export const RULES = [
