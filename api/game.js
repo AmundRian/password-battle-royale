@@ -1,7 +1,7 @@
 import {
   RULES, NAMES_KEY, assertHostKey, createId, createToken, defaultMeta,
   getMeta, getPlayer, getPlayers, getRedis, resetGame,
-  savePlayer, setMeta, validatePassword, getRpsChoice, rpsChoiceLabel
+  savePlayer, setMeta, validatePassword, TIMELINE_ORDER
 } from "./_lib/game.js";
 
 function send(res, status, body) {
@@ -41,15 +41,28 @@ function roundSeconds(value, fallback = 60) {
 
 function shortestPasswordWinners(players) {
   const eligible = players
-    .filter(p => p.alive && p.submission)
-    .map(p => ({ name: p.name, length: passwordLength(p.submission) }));
+    .filter(p => p.alive && p.submission && p.valid !== false)
+    .map(p => ({ name: p.name, length: passwordLength(p.submission), stars: Number(p.stars || 0) }));
 
-  if (!eligible.length) return { winners: [], length: null };
+  if (!eligible.length) return { winners: [], length: null, stars: null };
 
   const shortest = Math.min(...eligible.map(p => p.length));
+  const shortestPlayers = eligible.filter(p => p.length === shortest);
+  const mostStars = Math.max(...shortestPlayers.map(p => p.stars));
   return {
-    winners: eligible.filter(p => p.length === shortest).map(p => p.name),
-    length: shortest
+    winners: shortestPlayers.filter(p => p.stars === mostStars).map(p => p.name),
+    length: shortest,
+    stars: mostStars
+  };
+}
+
+function shortKingWinners(players) {
+  if (!players.length) return { winners: [], stars: 0 };
+  const maxStars = Math.max(0, ...players.map(p => Number(p.stars || 0)));
+  if (maxStars <= 0) return { winners: [], stars: 0 };
+  return {
+    winners: players.filter(p => Number(p.stars || 0) === maxStars).map(p => p.name),
+    stars: maxStars
   };
 }
 
@@ -62,7 +75,8 @@ function overallLeaderboard(meta, players) {
     alive: Boolean(p.alive),
     eliminatedRound: p.eliminatedRound ?? null,
     submitted: Boolean(p.submission),
-    passwordLength: passwordLength(p.submission)
+    passwordLength: passwordLength(p.submission),
+    stars: Number(p.stars || 0)
   })).sort((a, b) => {
     // Anyone still alive always ranks above an eliminated player.
     if (a.alive !== b.alive) return Number(b.alive) - Number(a.alive);
@@ -76,7 +90,9 @@ function overallLeaderboard(meta, players) {
     if (a.submitted !== b.submitted) return Number(b.submitted) - Number(a.submitted);
     const aLength = a.passwordLength ?? Number.POSITIVE_INFINITY;
     const bLength = b.passwordLength ?? Number.POSITIVE_INFINITY;
-    return aLength - bLength || a.name.localeCompare(b.name, "nb");
+    if (aLength !== bLength) return aLength - bLength;
+    if (a.stars !== b.stars) return b.stars - a.stars;
+    return a.name.localeCompare(b.name, "nb");
   });
 
   let previousKey = null;
@@ -86,7 +102,8 @@ function overallLeaderboard(meta, players) {
       p.alive ? "alive" : "dead",
       p.alive ? "" : (p.eliminatedRound ?? ""),
       p.submitted ? "submitted" : "none",
-      p.passwordLength ?? "none"
+      p.passwordLength ?? "none",
+      p.stars ?? 0
     ].join("|");
     if (key !== previousKey) {
       previousRank = index + 1;
@@ -106,15 +123,14 @@ const FAILURE_LABELS = new Map([
   ["Passordet må inneholde en hovedingrediens i pannekakerøre.", "Regel 5.1"],
   ["Passordet må inneholde minst én av de syv siste bokstavene i det norske alfabetet.", "Regel 5.2"],
   ["Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.", "Regel 6"],
-  ["Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.", "Regel 7"],
-  ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 9"],
-  ["Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.", "Regel 10"],
-  ["Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.", "Regel 11"],
-  ["Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.", "Regel 12"],
-  ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 13"],
-  ["Passordet må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir».", "Regel 14"],
-  ["Passordet må inneholde tittelen på en film med Brad Pitt.", "Regel 15"],
-  ["Passordet må inneholde navnet på et bryllupsjubileum.", "Regel 16"]
+  ["Passordet må inneholde det hemmelige ordet som låses opp i tidslinjen.", "Regel 7"],
+  ["Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.", "Regel 8"],
+  ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 10"],
+  ["Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.", "Regel 11"],
+  ["Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.", "Regel 12"],
+  ["Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.", "Regel 13"],
+  ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 14"],
+  ["Passordet må inneholde navnet på et land som har et flagg med kun to farger.", "Regel 15"]
 ]);
 
 function detailForFailure(text) {
@@ -157,7 +173,7 @@ function publicState(meta, players) {
       remaining: result.remaining,
       failureCounts: result.failureCounts || [],
       shortestPasswordLength: result.shortestPasswordLength ?? null,
-      rpsSummary: result.rpsSummary || null
+      starRecipients: result.starRecipients || []
     })),
     players: players
       .map(p => ({
@@ -170,7 +186,11 @@ function publicState(meta, players) {
         reason: revealResults ? (p.reason ?? null) : null,
         failures: revealResults ? (p.failures || []) : [],
         walterFeedRound: p.walterFeedRound ?? null,
-        walterFeedCount: p.walterFeedCount ?? 0
+        walterFeedCount: p.walterFeedCount ?? 0,
+        lives: Number(p.lives ?? 1),
+        stars: Number(p.stars || 0),
+        timelineSolved: Boolean(p.timelineSolved),
+        lostLifeRound: p.lostLifeRound ?? null
       }))
       .sort((a, b) => Number(b.alive) - Number(a.alive) || a.name.localeCompare(b.name, "nb"))
   };
@@ -188,6 +208,10 @@ function makeRoundResult(round, playersAtStart, finalPlayers) {
       submitted: Boolean(p.submission),
       submittedAt: p.submittedAt ?? null,
       survived: Boolean(p.alive),
+      valid: Boolean(p.valid),
+      stars: Number(p.stars || 0),
+      starAwarded: p.starAwardedRound === round,
+      lostLife: p.lostLifeRound === round,
       failures: (p.failureDetails || []).map(item => ({
         rule: item.rule,
         text: item.text
@@ -222,7 +246,7 @@ function makeRoundResult(round, playersAtStart, finalPlayers) {
 
   const counts = new Map();
   for (const p of resultPlayers) {
-    if (p.survived) continue;
+    if (p.valid) continue;
     for (const failure of p.failures) {
       const key = `${failure.rule}\u0000${failure.text}`;
       const current = counts.get(key) || { ...failure, count: 0 };
@@ -241,7 +265,11 @@ function makeRoundResult(round, playersAtStart, finalPlayers) {
     eliminated: resultPlayers.filter(p => !p.survived).length,
     remaining: finalPlayers.filter(p => p.alive).length,
     failureCounts,
-    shortestPasswordLength: resultPlayers.find(p => p.submitted && p.survived)?.passwordLength ?? null,
+    shortestPasswordLength: (() => {
+      const valid = resultPlayers.filter(p => p.submitted && p.valid);
+      return valid.length ? Math.min(...valid.map(p => p.passwordLength)) : null;
+    })(),
+    starRecipients: resultPlayers.filter(p => p.starAwarded).map(p => ({ id: p.id, name: p.name, stars: p.stars, passwordLength: p.passwordLength })),
     players: resultPlayers,
     closedAt: Date.now()
   };
@@ -285,7 +313,12 @@ export default async function handler(req, res) {
         reason: null,
         walterFeedRound: null,
         walterFeedCount: 0,
-        walterFirstFedAt: null
+        walterFirstFedAt: null,
+        lives: 2,
+        stars: 0,
+        starAwardedRound: null,
+        lostLifeRound: null,
+        timelineSolved: false
       };
       await savePlayer(player, redis);
       const players = await getPlayers(redis);
@@ -294,7 +327,7 @@ export default async function handler(req, res) {
 
     if (action === "feed_walter") {
       if (meta.status !== "round_open") fail("Walter kan bare mates mens en runde pågår.", 409);
-      if (meta.round < 8) fail("Walter-regelen har ikke startet ennå.", 409);
+      if (meta.round < 9) fail("Walter-regelen har ikke startet ennå.", 409);
       if (meta.deadline && Date.now() > meta.deadline) fail("Tiden er ute for denne runden.", 409);
 
       const player = await getPlayer(body.playerId, redis);
@@ -316,6 +349,20 @@ export default async function handler(req, res) {
         walterFeedRound: meta.round,
         walterFeedCount: player.walterFeedCount
       });
+    }
+
+    if (action === "solve_timeline") {
+      if (meta.status !== "round_open" || meta.round !== 7) fail("Tidslinjen kan bare løses i runde 7.", 409);
+      if (meta.deadline && Date.now() > meta.deadline) fail("Tiden er ute for denne runden.", 409);
+      const player = await getPlayer(body.playerId, redis);
+      if (!player || player.token !== body.playerToken) fail("Player session not found. Rejoin after the next reset.", 401);
+      if (!player.alive) fail("You have been eliminated.", 409);
+      const order = Array.isArray(body.order) ? body.order.map(String) : [];
+      const correct = order.length === TIMELINE_ORDER.length && TIMELINE_ORDER.every((id, index) => order[index] === id);
+      if (!correct) return send(res, 200, { ok: true, solved: false });
+      player.timelineSolved = true;
+      await savePlayer(player, redis);
+      return send(res, 200, { ok: true, solved: true, secret: "noldus" });
     }
 
     if (action === "submit") {
@@ -364,6 +411,11 @@ export default async function handler(req, res) {
         p.walterFeedRound = null;
         p.walterFeedCount = 0;
         p.walterFirstFedAt = null;
+        p.lives = 2;
+        p.stars = 0;
+        p.starAwardedRound = null;
+        p.lostLifeRound = null;
+        p.timelineSolved = false;
         await savePlayer(p, redis);
       }
 
@@ -376,6 +428,9 @@ export default async function handler(req, res) {
         winner: null,
         winners: [],
         winningPasswordLength: null,
+        winningStars: null,
+        shortKings: [],
+        shortKingStars: 0,
         lastRound: null,
         roundHistory: []
       }, redis);
@@ -413,7 +468,14 @@ export default async function handler(req, res) {
         const validation = validationById.get(p.id) || noSubmissionValidation();
         const failureDetails = (validation.failures || []).map(detailForFailure);
 
-        if (meta.round >= 8) {
+        if (meta.round === 7 && !p.timelineSolved) {
+          failureDetails.push({
+            rule: "Regel 7",
+            text: "Du må løse tidslinjen før passordet kan godkjennes i runde 7."
+          });
+        }
+
+        if (meta.round >= 9) {
           const fedBeforeFinalSubmission = Boolean(
             p.walterFeedRound === meta.round &&
             Number(p.walterFeedCount || 0) >= 1 &&
@@ -423,7 +485,7 @@ export default async function handler(req, res) {
           );
           if (!fedBeforeFinalSubmission) {
             failureDetails.push({
-              rule: "Regel 8",
+              rule: "Regel 9",
               text: "Du glemte å mate Walter før du leverte passordet denne runden."
             });
           }
@@ -442,71 +504,49 @@ export default async function handler(req, res) {
         failureDetailsById.set(p.id, failureDetails);
       }
 
-      let rpsSummary = null;
-      if (meta.round >= 14) {
-        const counts = { stein: 0, saks: 0, papir: 0 };
-        const choiceById = new Map();
-
-        for (const p of playersAtStart) {
-          const failures = failureDetailsById.get(p.id) || [];
-          if (failures.length || !p.submission) continue;
-          const choice = getRpsChoice(p.submission);
-          if (!choice) continue;
-          choiceById.set(p.id, choice);
-          counts[choice] += 1;
+      // Korteste gyldige passord i hver runde får en stjerne. Ugyldige passord teller aldri.
+      const starCandidates = playersAtStart.filter(p => p.submission && (failureDetailsById.get(p.id) || []).length === 0);
+      if (starCandidates.length) {
+        const shortest = Math.min(...starCandidates.map(p => passwordLength(p.submission)));
+        for (const p of starCandidates.filter(p => passwordLength(p.submission) === shortest)) {
+          p.stars = Number(p.stars || 0) + 1;
+          p.starAwardedRound = meta.round;
         }
-
-        const maxCount = Math.max(counts.stein, counts.saks, counts.papir);
-        const leaders = maxCount > 0
-          ? Object.keys(counts).filter(choice => counts[choice] === maxCount)
-          : [];
-
-        if (leaders.length) {
-          for (const p of playersAtStart) {
-            const failures = failureDetailsById.get(p.id) || [];
-            if (failures.length) continue;
-            const choice = choiceById.get(p.id);
-            if (!choice || leaders.includes(choice)) continue;
-
-            const leaderText = leaders.map(rpsChoiceLabel).join(" og ");
-            failures.push({
-              rule: "Regel 14",
-              text: `Du valgte ${rpsChoiceLabel(choice)}. ${leaderText} hadde flest valg denne runden.`
-            });
-          }
-        }
-
-        rpsSummary = {
-          counts: ["stein", "saks", "papir"].map(id => ({ id, label: rpsChoiceLabel(id), count: counts[id] })),
-          leaders: leaders.map(id => ({ id, label: rpsChoiceLabel(id) })),
-          maxCount
-        };
       }
 
       for (const p of playersAtStart) {
         const failureDetails = failureDetailsById.get(p.id) || [];
-        const eliminated = failureDetails.length > 0;
+        const failed = failureDetails.length > 0;
+        const canUseTrainingLife = meta.round === 1 && failed && Number(p.lives ?? 2) > 1;
 
-        p.alive = !eliminated;
-        p.valid = !eliminated;
+        if (canUseTrainingLife) {
+          p.lives = 1;
+          p.alive = true;
+          p.valid = false;
+          p.lostLifeRound = 1;
+          p.eliminatedRound = null;
+          p.reason = failureDetails.map(item => `${item.rule}: ${item.text}`).join(" · ");
+        } else {
+          p.alive = !failed;
+          p.valid = !failed;
+          if (failed) p.lives = 0;
+          p.eliminatedRound = failed ? meta.round : null;
+          p.reason = failed ? failureDetails.map(item => `${item.rule}: ${item.text}`).join(" · ") : null;
+        }
+
         p.failures = failureDetails.map(item => item.text);
         p.failureDetails = failureDetails;
-        p.eliminatedRound = eliminated ? meta.round : null;
-        p.reason = eliminated
-          ? failureDetails.map(item => `${item.rule}: ${item.text}`).join(" · ")
-          : null;
-
         await savePlayer(p, redis);
       }
 
       const after = await getPlayers(redis);
       const survivors = after.filter(p => p.alive);
       const roundResult = makeRoundResult(meta.round, playersAtStart, after);
-      if (rpsSummary) roundResult.rpsSummary = rpsSummary;
       const roundHistory = [...(meta.roundHistory || []), roundResult];
 
       if (meta.round >= RULES.length) {
         const finalRanking = shortestPasswordWinners(survivors);
+        const shortKings = shortKingWinners(after);
         meta = await setMeta({
           ...meta,
           status: "game_over",
@@ -514,6 +554,9 @@ export default async function handler(req, res) {
           winner: finalRanking.winners[0] || null,
           winners: finalRanking.winners,
           winningPasswordLength: finalRanking.length,
+          winningStars: finalRanking.stars,
+          shortKings: shortKings.winners,
+          shortKingStars: shortKings.stars,
           lastRound: roundResult,
           roundHistory
         }, redis);
@@ -525,6 +568,8 @@ export default async function handler(req, res) {
           winner: null,
           winners: [],
           winningPasswordLength: null,
+          shortKings: shortKingWinners(after).winners,
+          shortKingStars: shortKingWinners(after).stars,
           lastRound: roundResult,
           roundHistory
         }, redis);
@@ -546,12 +591,16 @@ export default async function handler(req, res) {
 
       if (survivors.length === 0 || meta.round >= RULES.length) {
         const finalRanking = shortestPasswordWinners(survivors);
+        const shortKings = shortKingWinners(players);
         meta = await setMeta({
           ...meta,
           status: "game_over",
           winner: finalRanking.winners[0] || null,
           winners: finalRanking.winners,
           winningPasswordLength: finalRanking.length,
+          winningStars: finalRanking.stars,
+          shortKings: shortKings.winners,
+          shortKingStars: shortKings.stars,
           deadline: null
         }, redis);
       } else {
@@ -565,6 +614,8 @@ export default async function handler(req, res) {
           p.walterFeedRound = null;
           p.walterFeedCount = 0;
           p.walterFirstFedAt = null;
+          if (meta.round >= 1) p.lives = 1;
+          p.lostLifeRound = null;
           await savePlayer(p, redis);
         }
 
