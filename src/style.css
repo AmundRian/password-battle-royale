@@ -679,6 +679,7 @@ body.player-theme-marie::before {
   border-radius:16px;
   border:1px solid rgba(255,255,255,.13);
   background:linear-gradient(145deg,rgba(20,24,38,.96),rgba(11,14,24,.98));
+  color:#eef2ff;
 }
 .timeline-game-head {
   display:flex;
@@ -687,12 +688,12 @@ body.player-theme-marie::before {
   gap:10px;
   margin-bottom:10px;
 }
-.timeline-game-head strong { font-size:.84rem; }
+.timeline-game-head strong { font-size:.84rem; color:#fbfcff; }
 .timeline-game-head span {
   padding:4px 8px;
   border-radius:999px;
   background:rgba(255,255,255,.07);
-  color:#adb6ce;
+  color:#eef2ff;
   font-size:.69rem;
   font-weight:800;
 }
@@ -729,6 +730,7 @@ body.player-theme-marie::before {
 }
 .timeline-card.dragging { opacity:.72; transform:scale(.985); border-color:#b8a56a; }
 .timeline-position {
+  box-shadow:0 0 0 1px rgba(255,255,255,.03) inset;
   display:grid;
   place-items:center;
   width:28px;
@@ -749,8 +751,8 @@ body.player-theme-marie::before {
   background:#111522;
 }
 .timeline-caption { min-width:0; }
-.timeline-caption strong { display:block; font-size:.76rem; line-height:1.2; }
-.timeline-caption small { display:block; margin-top:3px; color:#919ab4; font-size:.63rem; }
+.timeline-caption strong { display:block; font-size:.76rem; line-height:1.2; color:#f7f8fd; }
+.timeline-caption small { display:block; margin-top:3px; color:#c1cae2; font-size:.63rem; }
 .timeline-drag-handle {
   width:36px;
   min-height:48px;
@@ -826,6 +828,8 @@ body.player-theme-marie::before {
 .timeline-list.solved .timeline-card:nth-child(4) { animation-delay:.105s; }
 .timeline-list.solved .timeline-card:nth-child(5) { animation-delay:.14s; }
 .timeline-list.solved .timeline-card:nth-child(6) { animation-delay:.175s; }
+.timeline-list.solved .timeline-caption strong { color:#fff4b8; }
+.timeline-list.solved .timeline-caption small { color:#d7d0a6; }
 @keyframes timeline-card-snap {
   0% { transform:translateX(8px); box-shadow:0 0 0 rgba(238,210,112,0); }
   70% { transform:translateX(-2px); box-shadow:0 0 22px rgba(238,210,112,.15); }
