@@ -7,6 +7,12 @@ import nebbdyrImage from "./nebbdyr.webp";
 import moteBilde1 from "./motebilde1.webp";
 import moteBilde2 from "./motebilde2.webp";
 import walterImage from "./walter.webp";
+import timelineMoon from "./timeline_moon.webp";
+import timeline2017 from "./timeline_2017.webp";
+import timelineFirstMeeting from "./timeline_first_meeting.webp";
+import timeline2023 from "./timeline_2023.webp";
+import timelineWalterPuppy from "./timeline_walter_puppy.webp";
+import timelineEngagement from "./timeline_engagement.webp";
 
 const app = document.querySelector("#app");
 const params = new URLSearchParams(location.search);
@@ -26,6 +32,7 @@ let knownGameSessionId = localStorage.getItem(gameSessionStorageKey) || "";
 let lastError = "";
 let lastSubmit = null;
 let polling = null;
+let timelineMessage = "";
 
 function readJson(v) {
   try { return JSON.parse(v); } catch { return null; }
@@ -295,6 +302,107 @@ function secondsLeft() {
   return Math.max(0, Math.ceil((state.meta.deadline - Date.now()) / 1000));
 }
 
+const timelineCards = [
+  { id: "moon", src: timelineMoon, caption: "Månelandingen" },
+  { id: "2017", src: timeline2017, caption: "2017" },
+  { id: "first_meeting", src: timelineFirstMeeting, caption: "Første gang Siri og Amund møttes" },
+  { id: "2023", src: timeline2023, caption: "2023" },
+  { id: "walter_puppy", src: timelineWalterPuppy, caption: "Siri og Amund fikk Walter" },
+  { id: "engagement", src: timelineEngagement, caption: "Forlovelsen" }
+];
+
+function shuffledTimelineIds() {
+  const ids = timelineCards.map(card => card.id);
+  for (let i = ids.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  const correct = ["moon", "2017", "first_meeting", "2023", "walter_puppy", "engagement"];
+  if (ids.every((id, index) => id === correct[index])) [ids[0], ids[1]] = [ids[1], ids[0]];
+  return ids;
+}
+
+function timelineOrder() {
+  if (!player) return timelineCards.map(card => card.id);
+  const validIds = new Set(timelineCards.map(card => card.id));
+  let order = Array.isArray(player.timelineOrder) ? player.timelineOrder.filter(id => validIds.has(id)) : [];
+  if (order.length !== timelineCards.length || new Set(order).size !== timelineCards.length) {
+    order = shuffledTimelineIds();
+    player = { ...player, timelineOrder: order };
+    localStorage.setItem(storageKey, JSON.stringify(player));
+  }
+  return order;
+}
+
+function saveTimelineOrderFromDom() {
+  if (!player) return;
+  const order = [...document.querySelectorAll(".timeline-card")].map(card => card.dataset.timelineId).filter(Boolean);
+  if (order.length !== timelineCards.length) return;
+  player = { ...player, timelineOrder: order };
+  localStorage.setItem(storageKey, JSON.stringify(player));
+}
+
+function timelineRuleHtml() {
+  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 7) return "";
+  const self = selfState();
+  if (!self?.alive) return "";
+  if (self.timelineSolved) {
+    return `<div class="timeline-unlocked">
+      <div class="timeline-lock open" aria-hidden="true">🔓</div>
+      <div><small>HEMMELIG ORD LÅST OPP</small><strong>NOLDUS</strong><p>Passordet ditt må inneholde ordet «noldus».</p></div>
+    </div>`;
+  }
+
+  const byId = new Map(timelineCards.map(card => [card.id, card]));
+  return `<div class="timeline-game">
+    <div class="timeline-game-head"><strong>Sett hendelsene i riktig rekkefølge</strong><span>Dra kortene</span></div>
+    <div class="timeline-list" id="timeline-list">
+      ${timelineOrder().map((id, index) => {
+        const card = byId.get(id);
+        return `<article class="timeline-card" data-timeline-id="${esc(card.id)}" draggable="true">
+          <div class="timeline-position">${index + 1}</div>
+          <img src="${card.src}" alt="${esc(card.caption)}" draggable="false">
+          <div class="timeline-caption"><strong>${esc(card.caption)}</strong><small>Hold og dra for å flytte</small></div>
+          <button class="timeline-drag-handle" type="button" aria-label="Flytt ${esc(card.caption)}">↕</button>
+        </article>`;
+      }).join("")}
+    </div>
+    <button type="button" id="check-timeline" class="timeline-check">Sjekk tidslinje</button>
+    <div class="timeline-feedback ${timelineMessage ? "show" : ""}" id="timeline-feedback">${esc(timelineMessage)}</div>
+  </div>`;
+}
+
+function starsHtml(stars) {
+  const count = Math.max(0, Number(stars || 0));
+  if (!count) return "";
+  if (count <= 4) return `<span class="star-badge" title="${count} stjerne${count === 1 ? "" : "r"}">${"⭐".repeat(count)}</span>`;
+  return `<span class="star-badge" title="${count} stjerner">⭐×${count}</span>`;
+}
+
+function lifeInfoHtml(self) {
+  if (!self?.alive || state?.meta?.status !== "round_open") return "";
+  if (state.meta.round === 1) {
+    const lives = Math.max(1, Number(self.lives ?? 2));
+    return `<div class="life-info training"><div class="life-hearts">${lives >= 2 ? "❤️❤️" : "❤️🖤"}</div><div><strong>Ekstra liv i første runde</strong><span>Feiler du denne runden, bruker du ekstralivet og får fortsette. Fra runde 2 har alle bare ett liv.</span></div></div>`;
+  }
+  if (state.meta.round === 2) {
+    return `<div class="life-info sudden"><div class="life-hearts">❤️</div><div><strong>Ett liv fra nå av</strong><span>Fra runde 2 er du ute dersom passordet ikke oppfyller rundens krav.</span></div></div>`;
+  }
+  return "";
+}
+
+function shortKingFinalHtml() {
+  if (state?.meta?.status !== "game_over") return "";
+  const kings = state.meta.shortKings || [];
+  if (!kings.length) return "";
+  const winners = state.meta.winners || [];
+  const same = kings.length === winners.length && kings.every(name => winners.includes(name));
+  return `<div class="short-king-final ${same ? "double-crown" : ""}">
+    <span>${same ? "👑⭐" : "⭐"}</span>
+    <div><small>${same ? "DOUBLE CROWN" : "THE SHORT KING"}</small><strong>${kings.map(esc).join(" & ")}</strong><p>${state.meta.shortKingStars || 0} stjerne${Number(state.meta.shortKingStars || 0) === 1 ? "" : "r"}</p></div>
+  </div>`;
+}
+
 function animalRuleImagesHtml() {
   const animals = [
     { src: jervImage, label: "Dyr 1" },
@@ -319,10 +427,10 @@ function meetingRuleImagesHtml() {
     { src: moteBilde1, label: "Person 1" },
     { src: moteBilde2, label: "Person 2" }
   ];
-  return `<div class="meeting-rule-gallery" aria-label="To bilder til regel 7">
+  return `<div class="meeting-rule-gallery" aria-label="To bilder til regel 8">
     ${images.map((image, index) => `
       <figure class="meeting-rule-image">
-        <img src="${image.src}" alt="${image.label} i regel 7" loading="eager">
+        <img src="${image.src}" alt="${image.label} i regel 8" loading="eager">
         <figcaption>${index + 1}</figcaption>
       </figure>
     `).join("")}
@@ -343,10 +451,10 @@ function walterFeedState() {
   return { self, count };
 }
 
-// Runde 8 bruker den kompakte Walter-presentasjonen fra den første Walter-versjonen.
-// Fra og med runde 9 vises Walter kompakt under passordfeltet.
+// Runde 9 bruker den kompakte Walter-presentasjonen.
+// Fra og med runde 10 vises Walter kompakt under passordfeltet.
 function walterRoundEightRuleHtml() {
-  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 8) return "";
+  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 9) return "";
   const { self, count } = walterFeedState();
   if (!self?.alive) return "";
   const status = count > 0 ? `Walter er matet ${walterBonesHtml(count)}` : "";
@@ -360,7 +468,7 @@ function walterRoundEightRuleHtml() {
 }
 
 function walterInlineHtml() {
-  if (hostMode || state?.meta?.status !== "round_open" || (state?.meta?.round || 0) < 9) return "";
+  if (hostMode || state?.meta?.status !== "round_open" || (state?.meta?.round || 0) < 10) return "";
   const { self, count } = walterFeedState();
   if (!self?.alive) return "";
   const status = count > 0 ? `Walter er matet ${walterBonesHtml(count)}` : "";
@@ -378,7 +486,7 @@ function rulesHtml() {
   if (!rules.length) return `<p class="muted">Rules appear when the host starts the game.</p>`;
 
   // Alle aktive regler vises i naturlig rekkefølge. Walter-regelen forblir synlig
-  // som regel 8 også fra runde 9, mens selve Walter-bildet flyttes til passordfeltet.
+  // som regel 9 også fra runde 10, mens selve Walter-bildet flyttes til passordfeltet.
   // Dermed står den nyeste regelen alltid nederst: 1, 2, 3 ... gjeldende runde.
   const visibleRules = rules
     .map((rule, index) => ({ rule, number: index + 1 }));
@@ -394,9 +502,13 @@ function rulesHtml() {
       const media = r.id === "animals"
         ? animalRuleImagesHtml()
         : (r.id === "meeting_year" ? meetingRuleImagesHtml() : "");
-      const walter = r.id === "walter" && state?.meta?.round === 8 ? walterRoundEightRuleHtml() : "";
-      const withMedia = r.id === "animals" || r.id === "meeting_year" || Boolean(walter);
-      return `<li class="${withMedia ? "rule-with-images" : ""}"><span>${number}</span><div>${esc(r.text)}${media}${hint}${walter}</div></li>`;
+      const timeline = r.id === "timeline" && state?.meta?.round === 7 ? timelineRuleHtml() : "";
+      const timelineText = r.id === "timeline" && state?.meta?.round > 7
+        ? "Passordet ditt må fortsatt inneholde det hemmelige ordet du låste opp i regel 7."
+        : r.text;
+      const walter = r.id === "walter" && state?.meta?.round === 9 ? walterRoundEightRuleHtml() : "";
+      const withMedia = r.id === "animals" || r.id === "meeting_year" || Boolean(timeline) || Boolean(walter);
+      return `<li class="${withMedia ? "rule-with-images" : ""}"><span>${number}</span><div>${esc(timelineText)}${media}${timeline}${hint}${walter}</div></li>`;
     }).join("")}
   </ol>`;
 }
@@ -408,7 +520,7 @@ function playerStatusText(p) {
     return `Eliminated${p.eliminatedRound ? ` · round ${p.eliminatedRound}` : ""}`;
   }
 
-  if (status === "results") return "Survived";
+  if (status === "results") return p.lostLifeRound === state?.meta?.round ? "Ekstraliv brukt · videre" : "Survived";
   if (status === "game_over") return "Finalist";
   if (status === "round_open") return p.hasSubmitted ? "Submitted" : "Waiting";
   return "Ready";
@@ -422,7 +534,7 @@ function playersHtml() {
     ${players.map(p => `
       <div class="player ${p.alive ? "alive" : "dead"}">
         <div class="player-main">
-          <strong>${esc(p.name)}</strong>
+          <strong>${esc(p.name)} ${["results", "game_over"].includes(state?.meta?.status) ? starsHtml(p.stars) : ""}</strong>
           <small>${esc(playerStatusText(p))}</small>
         </div>
         <div class="dot" title="${p.alive ? "Alive" : "Eliminated"}"></div>
@@ -506,13 +618,14 @@ function playerPanel() {
     const previousPassword = player?.lastPassword || "";
 
     return `<div class="card accent">
+      ${lifeInfoHtml(self)}
       <div class="submit-head">
         <h2>Submit your password</h2>
         <div id="countdown" class="countdown">${time ?? "—"}s</div>
       </div>
 
       <form id="submit-form">
-        <div class="password-entry-row ${state.meta.round >= 9 ? "with-walter" : ""}">
+        <div class="password-entry-row ${state.meta.round >= 10 ? "with-walter" : ""}">
           <label>Password
             <input
               class="password-input"
@@ -525,7 +638,7 @@ function playerPanel() {
           </label>
           ${walterInlineHtml()}
         </div>
-        <button ${time === 0 ? "disabled" : ""}>Submit / replace</button>
+        <button ${time === 0 || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 16 ? "Lever finalepassord" : "Submit / replace"}</button>
       </form>
 
       ${lastSubmit ? `<div class="feedback good">✓ Passordet er lagret. Resultatet vises når runden avsluttes.</div>` : ""}
@@ -542,9 +655,12 @@ function playerPanel() {
     const result = currentRoundSelfResult();
 
     if (result?.survived) {
+      if (result.lostLife) {
+        return `<div class="card life-lost"><h2>❤️ Du brukte ekstralivet</h2><p>Passordet bestod ikke runde 1, men du er fortsatt med. Fra runde 2 har du ett liv.</p></div>`;
+      }
       return `<div class="card winner">
-        <h2>✓ Du gikk videre fra runde ${state.meta.round}</h2>
-        <p>Se rundens svar nedenfor. Når neste runde starter, ligger ditt forrige passord klart i feltet.</p>
+        <h2>✓ Du gikk videre fra runde ${state.meta.round}${result.starAwarded ? " ⭐" : ""}</h2>
+        <p>${result.starAwarded ? "Du hadde et av rundens korteste gyldige passord og fikk en stjerne. " : ""}Se rundens svar nedenfor. Når neste runde starter, ligger ditt forrige passord klart i feltet.</p>
       </div>`;
     }
 
@@ -566,7 +682,7 @@ function playerPanel() {
       const winningLength = state.meta.winningPasswordLength;
       return `<div class="card winner">
         <h2>🏆 Du vant!</h2>
-        <p>Du kom gjennom alle reglene${winningLength ? ` med et vinnende passord på <strong>${winningLength} tegn</strong>` : ""}.</p>
+        <p>Du kom gjennom alle reglene${winningLength ? ` med et vinnende passord på <strong>${winningLength} tegn</strong>` : ""}${state.meta.winningStars != null ? ` · ${state.meta.winningStars} ⭐` : ""}.</p>
       </div>`;
     }
 
@@ -601,10 +717,6 @@ function roundResultsHtml() {
   const rankedPlayers = rankedResultPlayers(result.players || []);
   const finalRound = result.round >= state.totalRules && state.meta.status === "game_over";
   const winners = new Set(state.meta.winners || []);
-  const survivingLengths = rankedPlayers
-    .filter(p => p.survived && p.submitted && p.passwordLength != null)
-    .map(p => p.passwordLength);
-  const shortestSurvivorLength = survivingLengths.length ? Math.min(...survivingLengths) : null;
 
   return `<div class="card">
     <div class="card-title">
@@ -613,34 +725,28 @@ function roundResultsHtml() {
     </div>
 
     <p class="muted tiny">Spillere som gikk videre vises før eliminerte, og innen hver gruppe rangeres kortere passord først. Trykker du «Kopier», blir det valgte passordet automatisk utgangspunktet ditt i neste runde.</p>
+    ${result.starRecipients?.length ? `<div class="star-award"><span>⭐</span><div><strong>Kortest denne runden</strong><small>${result.starRecipients.map(p => `${esc(p.name)} · ${p.passwordLength} tegn`).join(" & ")}</small></div></div>` : ""}
 
-    ${result.rpsSummary ? `<div class="rps-summary">
-      <strong>Stein · saks · papir</strong>
-      <div class="rps-counts">
-        ${result.rpsSummary.counts.map(item => `<span class="${result.rpsSummary.leaders.some(x => x.id === item.id) ? "leader" : ""}">${esc(item.label)}: ${item.count}</span>`).join("")}
-      </div>
-      <small>${result.rpsSummary.leaders.length
-        ? `Videre: ${result.rpsSummary.leaders.map(x => esc(x.label)).join(" og ")}`
-        : "Ingen gyldige valg ble registrert."}</small>
-    </div>` : ""}
 
     <div class="players">
       ${rankedPlayers.map(p => {
         const isWinner = finalRound && winners.has(p.name);
-        const isShortestSurvivor = !finalRound && p.survived && p.submitted && p.passwordLength === shortestSurvivorLength;
+        const gotStar = Boolean(p.starAwarded);
         const rankText = p.displayRank ? `#${p.displayRank}` : "—";
         const lengthText = p.passwordLength != null ? `${p.passwordLength} tegn` : "Ingen innsending";
         const resultText = isWinner
           ? "🏆 Vinner"
-          : isShortestSurvivor
-            ? "★ Kortest"
-            : (p.survived ? (finalRound ? "✓ Fullførte" : "✓ Videre") : "✕ Ute");
-        const resultColor = isWinner || isShortestSurvivor ? "#ffe797" : (p.survived ? "#aaf1bd" : "#ffc1d0");
+          : p.lostLife
+            ? "❤️ Mistet ett liv"
+            : gotStar
+              ? "⭐ Kortest"
+              : (p.survived ? (finalRound ? "✓ Fullførte" : "✓ Videre") : "✕ Ute");
+        const resultColor = isWinner || gotStar ? "#ffe797" : (p.lostLife ? "#ffcf89" : (p.survived ? "#aaf1bd" : "#ffc1d0"));
 
-        return `<div class="player ${p.survived ? "alive" : "dead"} ${isShortestSurvivor ? "shortest" : ""}" style="align-items:flex-start;">
+        return `<div class="player ${p.survived ? "alive" : "dead"} ${gotStar ? "shortest" : ""}" style="align-items:flex-start;">
           <div style="min-width:44px;font-weight:800;font-size:1.05rem;">${rankText}</div>
           <div class="player-main" style="gap:4px;min-width:0;">
-            <strong>${esc(p.name)} <small style="font-weight:600;">· ${esc(lengthText)}</small></strong>
+            <strong>${esc(p.name)} ${starsHtml(p.stars)} <small style="font-weight:600;">· ${esc(lengthText)}</small></strong>
             <div class="password-result-line">
               <small class="mono password-result">${p.password ? esc(p.password) : "Ingen innsending"}</small>
               ${p.password ? `<button type="button" class="secondary copy-button" data-copy-player="${esc(p.id)}">Kopier</button>` : ""}
@@ -657,7 +763,7 @@ function roundResultsHtml() {
     </div>
 
     ${finalRound && state.meta.winningPasswordLength != null
-      ? `<p class="muted tiny"><strong>Vinnerkriterium:</strong> Blant deltakerne som bestod alle reglene, vinner korteste passord. Ved lik lengde blir det delt seier.</p>`
+      ? `<p class="muted tiny"><strong>Vinnerkriterium:</strong> Korteste gyldige finalepassord vinner. Ved lik lengde rangeres flest stjerner høyere; fortsatt likt gir delt seier.</p>`
       : ""}
   </div>`;
 }
@@ -672,7 +778,7 @@ function overallRankingHtml() {
       <h2>Samlet rangering</h2>
       <span>${rows.length} spillere</span>
     </div>
-    <p class="muted tiny">Spillere som fortsatt er med rangeres øverst. Blant eliminerte rangeres den som kom lengst høyest. Innen samme elimineringsrunde rangeres kortere passord foran lengre.</p>
+    <p class="muted tiny">Spillere som fortsatt er med rangeres øverst. Blant eliminerte rangeres den som kom lengst høyest. Innen samme elimineringsrunde rangeres kortere passord foran lengre. Ved lik passordlengde rangeres flest stjerner høyere.</p>
     <div class="players">
       ${rows.map(p => {
         const status = p.alive
@@ -682,7 +788,7 @@ function overallRankingHtml() {
         return `<div class="player leaderboard-row ${p.alive ? "alive" : "dead"}">
           <div class="leaderboard-rank">#${p.rank}</div>
           <div class="player-main">
-            <strong>${esc(p.name)}</strong>
+            <strong>${esc(p.name)} ${starsHtml(p.stars)}</strong>
             <small>${esc(status)} · ${esc(length)}</small>
           </div>
           <div class="dot"></div>
@@ -711,7 +817,7 @@ function hostStatsHtml() {
   if (status === "round_open") {
     const active = state.players.filter(p => p.alive);
     const submitted = active.filter(p => p.hasSubmitted).length;
-    const walterFed = state.meta.round >= 8
+    const walterFed = state.meta.round >= 9
       ? active.filter(p => p.walterFeedRound === state.meta.round && Number(p.walterFeedCount || 0) > 0).length
       : null;
 
@@ -749,14 +855,8 @@ function hostStatsHtml() {
         ["Videre", result.remaining],
         ["Korteste innsendte passord", result.shortestPasswordLength != null ? `${result.shortestPasswordLength} tegn` : "—"]
       ])}
+      ${result.starRecipients?.length ? `<div class="star-award"><span>⭐</span><div><strong>Stjerne denne runden</strong><small>${result.starRecipients.map(p => `${esc(p.name)} · ${p.passwordLength} tegn`).join(" & ")}</small></div></div>` : ""}
 
-      ${result.rpsSummary ? `<div class="rps-summary host-rps-summary">
-        <strong>Regel 14 · stemmefordeling</strong>
-        <div class="rps-counts">
-          ${result.rpsSummary.counts.map(item => `<span class="${result.rpsSummary.leaders.some(x => x.id === item.id) ? "leader" : ""}">${esc(item.label)}: ${item.count}</span>`).join("")}
-        </div>
-        <small>Videre: ${result.rpsSummary.leaders.map(x => esc(x.label)).join(" og ") || "—"}</small>
-      </div>` : ""}
 
       <div style="height:14px;"></div>
       <h2 style="margin-bottom:10px;">Regelbrudd</h2>
@@ -910,6 +1010,7 @@ function render() {
 
     ${lastError ? `<div class="notice bad">${esc(lastError)}</div>` : ""}
     ${winnerText ? `<div class="hero-winner">🏆 ${winnerText}</div>` : ""}
+    ${shortKingFinalHtml()}
 
     <section class="grid">
       <div>
@@ -1004,6 +1105,102 @@ function bindEvents() {
       void image?.offsetWidth;
       image?.classList.add("walter-jump");
       setTimeout(() => image?.classList.remove("walter-jump"), 900);
+    } catch (err) {
+      lastError = err.message;
+      render();
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  });
+
+  const timelineList = document.querySelector("#timeline-list");
+  if (timelineList) {
+    let draggedId = null;
+    let pointerId = null;
+
+    const refreshTimelineNumbers = () => {
+      [...timelineList.querySelectorAll(".timeline-card")].forEach((card, index) => {
+        const pos = card.querySelector(".timeline-position");
+        if (pos) pos.textContent = String(index + 1);
+      });
+      saveTimelineOrderFromDom();
+    };
+
+    timelineList.querySelectorAll(".timeline-card").forEach(card => {
+      card.addEventListener("dragstart", e => {
+        draggedId = card.dataset.timelineId;
+        card.classList.add("dragging");
+        e.dataTransfer?.setData("text/plain", draggedId || "");
+      });
+      card.addEventListener("dragend", () => {
+        card.classList.remove("dragging");
+        draggedId = null;
+        refreshTimelineNumbers();
+      });
+      card.addEventListener("dragover", e => e.preventDefault());
+      card.addEventListener("drop", e => {
+        e.preventDefault();
+        const source = timelineList.querySelector(`[data-timeline-id="${draggedId}"]`);
+        if (!source || source === card) return;
+        const rect = card.getBoundingClientRect();
+        timelineList.insertBefore(source, e.clientY > rect.top + rect.height / 2 ? card.nextSibling : card);
+        refreshTimelineNumbers();
+      });
+    });
+
+    timelineList.querySelectorAll(".timeline-drag-handle").forEach(handle => {
+      handle.addEventListener("pointerdown", e => {
+        const card = handle.closest(".timeline-card");
+        if (!card) return;
+        draggedId = card.dataset.timelineId;
+        pointerId = e.pointerId;
+        handle.setPointerCapture?.(e.pointerId);
+        card.classList.add("dragging");
+        e.preventDefault();
+      });
+      handle.addEventListener("pointermove", e => {
+        if (pointerId !== e.pointerId || !draggedId) return;
+        const source = timelineList.querySelector(`[data-timeline-id="${draggedId}"]`);
+        const target = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".timeline-card");
+        if (!source || !target || source === target || target.parentElement !== timelineList) return;
+        const rect = target.getBoundingClientRect();
+        timelineList.insertBefore(source, e.clientY > rect.top + rect.height / 2 ? target.nextSibling : target);
+        refreshTimelineNumbers();
+        e.preventDefault();
+      });
+      const endPointer = e => {
+        if (pointerId !== e.pointerId) return;
+        handle.releasePointerCapture?.(e.pointerId);
+        timelineList.querySelector(`[data-timeline-id="${draggedId}"]`)?.classList.remove("dragging");
+        draggedId = null;
+        pointerId = null;
+        refreshTimelineNumbers();
+      };
+      handle.addEventListener("pointerup", endPointer);
+      handle.addEventListener("pointercancel", endPointer);
+    });
+  }
+
+  document.querySelector("#check-timeline")?.addEventListener("click", async e => {
+    if (!player) return;
+    const button = e.currentTarget;
+    button.disabled = true;
+    timelineMessage = "";
+    try {
+      const order = [...document.querySelectorAll(".timeline-card")].map(card => card.dataset.timelineId);
+      const data = await api({ action: "solve_timeline", playerId: player.id, playerToken: player.token, order });
+      if (!data.solved) {
+        timelineMessage = "Ikke helt riktig ennå – prøv igjen.";
+        const feedback = document.querySelector("#timeline-feedback");
+        if (feedback) { feedback.textContent = timelineMessage; feedback.classList.add("show", "wrong"); }
+        return;
+      }
+      const self = selfState();
+      if (self) self.timelineSolved = true;
+      timelineMessage = "";
+      const list = document.querySelector("#timeline-list");
+      list?.classList.add("solved");
+      setTimeout(() => render(), 520);
     } catch (err) {
       lastError = err.message;
       render();
