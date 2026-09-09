@@ -1404,6 +1404,7 @@ export const RULES = [
   { id: "mesternes", text: "Passordet ditt må inneholde initialene til en deltaker fra «Mesternes mester». Initialene må skrives med store bokstaver." },
   { id: "digit_sum_even", text: "Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11." },
   { id: "r_count", text: "Passordet ditt må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet." },
+  { id: "rps", text: "Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Engelske varianter godkjennes også. Når runden avsluttes, går gruppen eller gruppene med flest valg videre; grupper med færre valg blir eliminert. Hvis alle tre er like store, går alle videre." },
   { id: "two_color_flag", text: "Siri og Amund lurer på hvor de skal dra på bryllupsreise. Passordet ditt må inneholde navnet på et land som har et flagg med kun to farger." },
   { id: "final_revision", text: "Finale! Gjør en siste revisjon av passordet ditt. Når runden avsluttes, vinner det korteste gyldige passordet. Ved lik lengde avgjør flest stjerner; fortsatt likt gir delt seier." }
 ];
@@ -1635,11 +1636,15 @@ export function validatePassword(password, round, options = {}) {
     failures.push("Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.");
   }
 
-  if (maxRound >= 15 && !containsAnyLoose(p, TWO_COLOR_FLAG_COUNTRIES)) {
+  if (maxRound >= 15 && !getRpsChoice(p)) {
+    failures.push("Passordet må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir».");
+  }
+
+  if (maxRound >= 16 && !containsAnyLoose(p, TWO_COLOR_FLAG_COUNTRIES)) {
     failures.push("Passordet må inneholde navnet på et land som har et flagg med kun to farger.");
   }
 
-  // Regel 16 er en ren finalerevisjon. Ingen ny innholdsregel legges til.
+  // Regel 17 er en ren finalerevisjon. Ingen ny innholdsregel legges til.
 
   return { valid: failures.length === 0, failures };
 }
