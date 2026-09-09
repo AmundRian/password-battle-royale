@@ -17,6 +17,7 @@ import timelineEngagement from "./timeline_engagement.webp";
 const app = document.querySelector("#app");
 const params = new URLSearchParams(location.search);
 const hostMode = params.get("host") === "1";
+const previewRound = hostMode ? Number(params.get("previewRound") || 0) : 0;
 const storageKey = "pbr-player-v1";
 const hostStorageKey = "pbr-host-key-v1";
 const gameSessionStorageKey = "pbr-game-session-v1";
@@ -638,7 +639,7 @@ function playerPanel() {
           </label>
           ${walterInlineHtml()}
         </div>
-        <button ${time === 0 || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 16 ? "Lever finalepassord" : "Submit / replace"}</button>
+        <button ${time === 0 || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Submit / replace"}</button>
       </form>
 
       ${lastSubmit ? `<div class="feedback good">✓ Passordet er lagret. Resultatet vises når runden avsluttes.</div>` : ""}
@@ -726,7 +727,13 @@ function roundResultsHtml() {
 
     <p class="muted tiny">Spillere som gikk videre vises før eliminerte, og innen hver gruppe rangeres kortere passord først. Trykker du «Kopier», blir det valgte passordet automatisk utgangspunktet ditt i neste runde.</p>
     ${result.starRecipients?.length ? `<div class="star-award"><span>⭐</span><div><strong>Kortest denne runden</strong><small>${result.starRecipients.map(p => `${esc(p.name)} · ${p.passwordLength} tegn`).join(" & ")}</small></div></div>` : ""}
-
+    ${result.rpsSummary ? `<div class="rps-summary">
+      <strong>Stein · saks · papir</strong>
+      <div class="rps-counts">
+        ${result.rpsSummary.counts.map(item => `<span class="${result.rpsSummary.leaders.some(x => x.id === item.id) ? "leader" : ""}">${esc(item.label)}: ${item.count}</span>`).join("")}
+      </div>
+      <small>${result.rpsSummary.leaders.length ? `Videre: ${result.rpsSummary.leaders.map(x => esc(x.label)).join(" og ")}` : "Ingen gruppeutfall"}</small>
+    </div>` : ""}
 
     <div class="players">
       ${rankedPlayers.map(p => {
@@ -961,8 +968,89 @@ function hostPanel() {
   ${hostStatsHtml()}`;
 }
 
+function hostPreviewHtml() {
+  if (!hostMode || ![15, 16, 17].includes(previewRound)) return "";
+
+  if (previewRound === 15) {
+    return `<main class="host-preview-shell">
+      <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
+      <header>
+        <div><div class="eyebrow">Passordet til Siris hjerte</div><h1>Regel 15</h1></div>
+        <div class="status-block"><span>Testvisning</span><strong>Round 15/17</strong><small>kun forhåndsvisning</small></div>
+      </header>
+      <section class="card rules-card">
+        <div class="card-title"><h2>Active rules</h2><span>15/17</span></div>
+        <ol class="rules preview-rules">
+          <li><span>15</span><div>Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Engelske varianter godkjennes også. Når runden avsluttes, går gruppen eller gruppene med flest valg videre; grupper med færre valg blir eliminert. Hvis alle tre er like store, går alle videre.</div></li>
+        </ol>
+      </section>
+      <section class="card accent play-card">
+        <div class="submit-head"><h2>Submit your password</h2><div class="countdown">60s</div></div>
+        <label>Password<input class="password-input" value="" placeholder="Bygg videre på passordet ditt" readonly></label>
+        <button type="button" disabled>Submit / replace</button>
+        <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
+      </section>
+      <div class="preview-links"><a href="?host=1&previewRound=16">Se regel 16 →</a><a href="?host=1">← Til vanlig host-side</a></div>
+    </main>`;
+  }
+
+  if (previewRound === 16) {
+    return `<main class="host-preview-shell">
+      <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
+      <header>
+        <div><div class="eyebrow">Passordet til Siris hjerte</div><h1>Regel 16</h1></div>
+        <div class="status-block"><span>Testvisning</span><strong>Round 16/17</strong><small>kun forhåndsvisning</small></div>
+      </header>
+      <section class="card rules-card">
+        <div class="card-title"><h2>Active rules</h2><span>16/17</span></div>
+        <ol class="rules preview-rules">
+          <li><span>16</span><div>Siri og Amund lurer på hvor de skal dra på bryllupsreise. Passordet ditt må inneholde navnet på et land som har et flagg med kun to farger.</div></li>
+        </ol>
+      </section>
+      <section class="card accent play-card">
+        <div class="submit-head"><h2>Submit your password</h2><div class="countdown">60s</div></div>
+        <label>Password<input class="password-input" value="" placeholder="Bygg videre på passordet ditt" readonly></label>
+        <button type="button" disabled>Submit / replace</button>
+        <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
+      </section>
+      <div class="preview-links"><a href="?host=1&previewRound=15">← Se regel 15</a><a href="?host=1&previewRound=17">Se finalen →</a></div>
+    </main>`;
+  }
+
+  return `<main class="host-preview-shell">
+    <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
+    <header>
+      <div><div class="eyebrow">Passordet til Siris hjerte</div><h1>Finale</h1></div>
+      <div class="status-block"><span>Testvisning</span><strong>Round 17/17</strong><small>siste revisjon</small></div>
+    </header>
+    <section class="card rules-card">
+      <div class="card-title"><h2>Finalerunden</h2><span>17/17</span></div>
+      <div class="final-preview-copy">
+        <strong>Siste sjanse til å optimalisere passordet ditt.</strong>
+        <p>Passordet må fortsatt oppfylle alle tidligere regler. Når hosten avslutter runden, vinner den eller de som har kortest gyldige passord. Ved lik lengde avgjør flest stjerner. Er det fortsatt likt, deler de seieren.</p>
+      </div>
+    </section>
+    <section class="card accent play-card">
+      <div class="submit-head"><h2>Siste revisjon</h2><div class="countdown">60s</div></div>
+      <label>Password<input class="password-input" value="" placeholder="Gjør siste forbedring" readonly></label>
+      <button type="button" disabled>Lever finalepassord</button>
+      <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
+    </section>
+    <section class="card preview-awards">
+      <div class="preview-award">🏆 <div><small>Vinneren av</small><strong>Passordet til Siris hjerte</strong></div></div>
+      <div class="preview-award">⭐ <div><small>Egen sluttkåring</small><strong>THE SHORT KING</strong></div></div>
+    </section>
+    <div class="preview-links"><a href="?host=1&previewRound=16">← Se regel 16</a><a href="?host=1">Til vanlig host-side →</a></div>
+  </main>`;
+}
+
 function render() {
   const inputState = captureInputState();
+
+  if (hostMode && [15, 16, 17].includes(previewRound)) {
+    app.innerHTML = hostPreviewHtml();
+    return;
+  }
 
   if (!state) {
     app.innerHTML = `<main>
