@@ -81,6 +81,22 @@ function esc(v) {
   }[c]));
 }
 
+function inferTeamSize(name) {
+  const text = String(name || "").trim();
+  const explicit = text.match(/\(([2-6])\)\s*$/);
+  if (explicit) return Number(explicit[1]);
+  const parts = text
+    .split(/\s+(?:og|and)\s+|\s*[&/+;,]\s*/iu)
+    .map(part => part.trim())
+    .filter(Boolean);
+  return Math.max(1, Math.min(6, parts.length >= 2 ? parts.length : 1));
+}
+
+function teamHintHtml(name) {
+  const size = inferTeamSize(name);
+  return size > 1 ? `👥 Lag på ${size} · +${size - 1} tegn` : "";
+}
+
 function normalizedNickname(value) {
   return String(value ?? "")
     .normalize("NFKC")
@@ -509,7 +525,8 @@ function rulesHtml() {
         : r.text;
       const walter = r.id === "walter" && state?.meta?.round === 9 ? walterRoundEightRuleHtml() : "";
       const withMedia = r.id === "animals" || r.id === "meeting_year" || Boolean(timeline) || Boolean(walter);
-      return `<li class="${withMedia ? "rule-with-images" : ""}"><span>${number}</span><div>${esc(timelineText)}${media}${timeline}${hint}${walter}</div></li>`;
+      const latest = number === visibleRules.length;
+      return `<li class="${withMedia ? "rule-with-images " : ""}${latest ? "latest-rule" : ""}"><span>${number}</span><div>${esc(timelineText)}${media}${timeline}${hint}${walter}</div></li>`;
     }).join("")}
   </ol>`;
 }
@@ -535,7 +552,7 @@ function playersHtml() {
     ${players.map(p => `
       <div class="player ${p.alive ? "alive" : "dead"}">
         <div class="player-main">
-          <strong>${esc(p.name)} ${["results", "game_over"].includes(state?.meta?.status) ? starsHtml(p.stars) : ""}</strong>
+          <strong>${esc(p.name)} ${Number(p.teamSize || 1) > 1 ? `<span class="team-badge">👥 ${p.teamSize}</span>` : ""} ${["results", "game_over"].includes(state?.meta?.status) ? starsHtml(p.stars) : ""}</strong>
           <small>${esc(playerStatusText(p))}</small>
         </div>
         <div class="dot" title="${p.alive ? "Alive" : "Eliminated"}"></div>
@@ -592,8 +609,9 @@ function playerPanel() {
       <h2>Join the game</h2>
       <form id="join-form">
         <label>Nickname
-          <input name="name" maxlength="24" autocomplete="nickname" required placeholder="Your name">
+          <input id="nickname-input" name="name" maxlength="48" autocomplete="nickname" required placeholder="Ditt navn eller lagnavn">
         </label>
+        <div id="team-hint" class="team-hint" aria-live="polite"></div>
         <button>Join</button>
       </form>
       <p class="muted tiny"><strong>Viktig:</strong> Bruk kun et passord laget for spillet. Innsendte passord blir vist til de andre deltakerne etter hver runde.</p>
@@ -620,8 +638,7 @@ function playerPanel() {
 
     return `<div class="card accent">
       ${lifeInfoHtml(self)}
-      <div class="submit-head">
-        <h2>Submit your password</h2>
+      <div class="submit-head submit-head-compact">
         <div id="countdown" class="countdown">${time ?? "—"}s</div>
       </div>
 
@@ -639,16 +656,11 @@ function playerPanel() {
           </label>
           ${walterInlineHtml()}
         </div>
-        <button ${time === 0 || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Submit / replace"}</button>
+        <button ${time === 0 || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Lever passord"}</button>
       </form>
 
       ${lastSubmit ? `<div class="feedback good">✓ Passordet er lagret. Resultatet vises når runden avsluttes.</div>` : ""}
 
-      <p class="muted tiny">
-        ${previousPassword
-          ? "Passordet fra forrige runde er forhåndsutfylt. Du kan endre det før du sender inn."
-          : "Du kan erstatte innsendt passord frem til tiden går ut. Kun siste innsending teller."}
-      </p>
     </div>`;
   }
 
@@ -740,7 +752,7 @@ function roundResultsHtml() {
         const isWinner = finalRound && winners.has(p.name);
         const gotStar = Boolean(p.starAwarded);
         const rankText = p.displayRank ? `#${p.displayRank}` : "—";
-        const lengthText = p.passwordLength != null ? `${p.passwordLength} tegn` : "Ingen innsending";
+        const lengthText = p.passwordLength != null ? `${p.passwordLength} tegn${Number(p.teamPenalty || 0) > 0 ? ` (${p.rawPasswordLength} + ${p.teamPenalty} lag)` : ""}` : "Ingen innsending";
         const resultText = isWinner
           ? "🏆 Vinner"
           : p.lostLife
@@ -791,7 +803,7 @@ function overallRankingHtml() {
         const status = p.alive
           ? (state.meta.status === "game_over" ? "Fullførte" : "Videre")
           : `Ute i runde ${p.eliminatedRound ?? "—"}`;
-        const length = p.passwordLength != null ? `${p.passwordLength} tegn` : "Ingen innsending";
+        const length = p.passwordLength != null ? `${p.passwordLength} tegn${Number(p.teamPenalty || 0) > 0 ? ` (${p.rawPasswordLength} + ${p.teamPenalty} lag)` : ""}` : "Ingen innsending";
         return `<div class="player leaderboard-row ${p.alive ? "alive" : "dead"}">
           <div class="leaderboard-rank">#${p.rank}</div>
           <div class="player-main">
@@ -1131,7 +1143,6 @@ function render() {
       </aside>
     </section>
 
-    <footer>Inspired by DougDoug's Password Battle Royale · private friend-game edition</footer>
   </main>`;
 
   bindEvents();
@@ -1140,6 +1151,17 @@ function render() {
 
 function bindEvents() {
   setupPasswordInputAutoFit();
+
+  const nicknameInput = document.querySelector("#nickname-input");
+  const teamHint = document.querySelector("#team-hint");
+  const updateTeamHint = () => {
+    if (!teamHint) return;
+    const text = teamHintHtml(nicknameInput?.value || "");
+    teamHint.textContent = text;
+    teamHint.classList.toggle("show", Boolean(text));
+  };
+  nicknameInput?.addEventListener("input", updateTeamHint);
+  updateTeamHint();
 
   document.querySelector("#join-form")?.addEventListener("submit", async e => {
     e.preventDefault();
