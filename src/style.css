@@ -923,3 +923,43 @@ body.player-theme-marie::before {
   .rules-card .rules li.latest-rule,
   .rules-card .rules li.latest-rule > div { animation:none !important; }
 }
+
+
+/* FIX: latest rule must be equally visible on participant phones, including themed nicknames. */
+.participant-mode .rules-card .rules li.latest-rule,
+.participant-mode .rules-card.theme-siri .rules li.latest-rule,
+.participant-mode .rules-card.theme-marie .rules li.latest-rule,
+.participant-mode .rules-card.theme-marius .rules li.latest-rule {
+  border: 2px solid #f4cf55 !important;
+  background: linear-gradient(135deg, rgba(67,54,18,.96), rgba(31,27,18,.98)) !important;
+  box-shadow: 0 0 0 1px rgba(244,207,85,.24), 0 0 22px rgba(244,207,85,.16) !important;
+  animation: wedding-participant-latest-pulse 2.8s ease-in-out infinite !important;
+  transform: none;
+}
+.participant-mode .rules-card .rules li.latest-rule > span,
+.participant-mode .rules-card.theme-siri .rules li.latest-rule > span,
+.participant-mode .rules-card.theme-marie .rules li.latest-rule > span,
+.participant-mode .rules-card.theme-marius .rules li.latest-rule > span {
+  background: #f4cf55 !important;
+  color: #17140b !important;
+  border-color: #ffe68a !important;
+}
+.participant-mode .rules-card .rules li.latest-rule > div,
+.participant-mode .rules-card.theme-siri .rules li.latest-rule > div,
+.participant-mode .rules-card.theme-marie .rules li.latest-rule > div,
+.participant-mode .rules-card.theme-marius .rules li.latest-rule > div {
+  color: #fff1a8 !important;
+  animation: wedding-participant-latest-text 2.8s ease-in-out infinite !important;
+}
+@keyframes wedding-participant-latest-pulse {
+  0%,100% { border-color:#d9b646; box-shadow:0 0 0 1px rgba(244,207,85,.16),0 0 10px rgba(244,207,85,.07); }
+  50% { border-color:#ffe889; box-shadow:0 0 0 1px rgba(255,232,137,.34),0 0 28px rgba(244,207,85,.22); }
+}
+@keyframes wedding-participant-latest-text {
+  0%,100% { color:#f3dc92; }
+  50% { color:#fff8d1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .participant-mode .rules-card .rules li.latest-rule,
+  .participant-mode .rules-card .rules li.latest-rule > div { animation:none !important; }
+}
