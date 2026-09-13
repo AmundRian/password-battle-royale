@@ -1084,6 +1084,8 @@ function render() {
   const total = state.players.length;
   const time = secondsLeft();
 
+  document.body.classList.toggle("participant-mode", !hostMode);
+  document.body.classList.toggle("host-mode", hostMode);
   document.body.classList.toggle("player-theme-marie", !hostMode && normalizedNickname(currentNickname()) === "marie");
 
   const winnerText = meta.status === "game_over"
