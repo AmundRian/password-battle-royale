@@ -15,7 +15,7 @@ function fail(message, status = 400) {
 }
 
 function cleanName(value) {
-  return String(value || "").trim().replace(/\s+/g, " ").slice(0, 24);
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, 48);
 }
 
 function getHostKey(req, body) {
@@ -33,6 +33,27 @@ function passwordLength(value) {
   return value == null ? null : [...String(value)].length;
 }
 
+function inferTeamSize(name) {
+  const text = String(name || "").trim();
+  const explicit = text.match(/\(([2-6])\)\s*$/);
+  if (explicit) return Number(explicit[1]);
+
+  const parts = text
+    .split(/\s+(?:og|and)\s+|\s*[&/+;,]\s*/iu)
+    .map(part => part.trim())
+    .filter(Boolean);
+  return Math.max(1, Math.min(6, parts.length >= 2 ? parts.length : 1));
+}
+
+function teamPenalty(player) {
+  return Math.max(0, Math.min(5, Number(player?.teamSize || 1) - 1));
+}
+
+function effectivePasswordLength(player) {
+  const raw = passwordLength(player?.submission);
+  return raw == null ? null : raw + teamPenalty(player);
+}
+
 function roundSeconds(value, fallback = 60) {
   const parsed = Number(value);
   const safe = Number.isFinite(parsed) ? parsed : fallback;
@@ -42,7 +63,7 @@ function roundSeconds(value, fallback = 60) {
 function shortestPasswordWinners(players) {
   const eligible = players
     .filter(p => p.alive && p.submission && p.valid !== false)
-    .map(p => ({ name: p.name, length: passwordLength(p.submission), stars: Number(p.stars || 0) }));
+    .map(p => ({ name: p.name, length: effectivePasswordLength(p), stars: Number(p.stars || 0) }));
 
   if (!eligible.length) return { winners: [], length: null, stars: null };
 
@@ -75,7 +96,10 @@ function overallLeaderboard(meta, players) {
     alive: Boolean(p.alive),
     eliminatedRound: p.eliminatedRound ?? null,
     submitted: Boolean(p.submission),
-    passwordLength: passwordLength(p.submission),
+    passwordLength: effectivePasswordLength(p),
+    rawPasswordLength: passwordLength(p.submission),
+    teamSize: Number(p.teamSize || 1),
+    teamPenalty: teamPenalty(p),
     stars: Number(p.stars || 0)
   })).sort((a, b) => {
     // Anyone still alive always ranks above an eliminated player.
@@ -189,6 +213,8 @@ function publicState(meta, players) {
         walterFeedRound: p.walterFeedRound ?? null,
         walterFeedCount: p.walterFeedCount ?? 0,
         lives: Number(p.lives ?? 1),
+        teamSize: Number(p.teamSize || 1),
+        teamPenalty: teamPenalty(p),
         stars: Number(p.stars || 0),
         timelineSolved: Boolean(p.timelineSolved),
         lostLifeRound: p.lostLifeRound ?? null
@@ -205,7 +231,10 @@ function makeRoundResult(round, playersAtStart, finalPlayers) {
       id: p.id,
       name: p.name,
       password: p.submission || null,
-      passwordLength: passwordLength(p.submission),
+      passwordLength: effectivePasswordLength(p),
+      rawPasswordLength: passwordLength(p.submission),
+      teamSize: Number(p.teamSize || 1),
+      teamPenalty: teamPenalty(p),
       submitted: Boolean(p.submission),
       submittedAt: p.submittedAt ?? null,
       survived: Boolean(p.alive),
@@ -298,6 +327,7 @@ export default async function handler(req, res) {
       const nameKey = name.toLocaleLowerCase("nb-NO");
       const id = createId();
       const token = createToken();
+      const teamSize = inferTeamSize(name);
       const claimed = await redis.hsetnx(NAMES_KEY, nameKey, id);
       if (!claimed) fail("That name is already taken.", 409);
       const player = {
@@ -316,6 +346,7 @@ export default async function handler(req, res) {
         walterFeedCount: 0,
         walterFirstFedAt: null,
         lives: 2,
+        teamSize,
         stars: 0,
         starAwardedRound: null,
         lostLifeRound: null,
@@ -323,7 +354,7 @@ export default async function handler(req, res) {
       };
       await savePlayer(player, redis);
       const players = await getPlayers(redis);
-      return send(res, 200, { ok: true, player: { id, name, token }, state: publicState(meta, players) });
+      return send(res, 200, { ok: true, player: { id, name, token, teamSize }, state: publicState(meta, players) });
     }
 
     if (action === "feed_walter") {
@@ -508,8 +539,8 @@ export default async function handler(req, res) {
       // Korteste gyldige passord i hver runde får en stjerne. Ugyldige passord teller aldri.
       const starCandidates = playersAtStart.filter(p => p.submission && (failureDetailsById.get(p.id) || []).length === 0);
       if (starCandidates.length) {
-        const shortest = Math.min(...starCandidates.map(p => passwordLength(p.submission)));
-        for (const p of starCandidates.filter(p => passwordLength(p.submission) === shortest)) {
+        const shortest = Math.min(...starCandidates.map(p => effectivePasswordLength(p)));
+        for (const p of starCandidates.filter(p => effectivePasswordLength(p) === shortest)) {
           p.stars = Number(p.stars || 0) + 1;
           p.starAwardedRound = meta.round;
         }
