@@ -23,10 +23,12 @@ function getHostKey(req, body) {
 }
 
 function duplicateKey(value) {
+  // Duplicate checking is case-sensitive.
+  // Example: "LaOs3" and "LaoS3" are different passwords.
+  // Unicode representation is normalized, and accidental outer whitespace is ignored.
   return String(value ?? "")
     .normalize("NFKC")
-    .trim()
-    .toLocaleLowerCase("nb-NO");
+    .trim();
 }
 
 function passwordLength(value) {
@@ -482,7 +484,7 @@ export default async function handler(req, res) {
       }
 
       // The first valid player to submit an otherwise identical password keeps it.
-      // Case and leading/trailing spaces do not create a "new" password.
+      // Letter case DOES create a different password. Leading/trailing spaces are still ignored.
       const validPlayers = playersAtStart
         .filter(p => p.submission && validationById.get(p.id)?.valid)
         .sort((a, b) => (a.submittedAt || 0) - (b.submittedAt || 0));
