@@ -997,6 +997,7 @@ const GEN1_POKEMON = [
   "Dragonair",
   "Dragonite",
   "Mewtwo",
+  "Mew",
   "NidoranF",
   "NidoranFemale",
   "NidoranM",
@@ -1400,7 +1401,7 @@ export const RULES = [
   { id: "meeting_year", text: "Passordet ditt må inneholde årstallet da personene på bildene møtte hverandre for første gang." },
   { id: "walter", text: "Fra og med denne runden må du mate Walter minst én gang i HVER runde før du sender inn passordet ditt. Trykk på Walter for å mate ham. Glemmer du å mate Walter i en senere runde, blir passordet ditt ikke godkjent." },
   { id: "song", text: "Passordet ditt må inneholde navnet på en låt av The Beatles, Queen eller The Killers." },
-  { id: "pokemon", text: "Passordet ditt må inneholde navnet på en Pokémon fra de første 150 i Pokédex." },
+  { id: "pokemon", text: "Passordet ditt må inneholde navnet på en Pokémon fra de første 151 i Pokédex." },
   { id: "mesternes", text: "Passordet ditt må inneholde initialene til en deltaker fra «Mesternes mester». Initialene må skrives med store bokstaver." },
   { id: "digit_sum_even", text: "Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11." },
   { id: "r_count", text: "Passordet ditt må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet." },
@@ -1616,12 +1617,8 @@ export function validatePassword(password, round, options = {}) {
     failures.push("Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.");
   }
 
-  if (maxRound >= 11) {
-    const standardPokemon = containsAnyLoose(p, GEN1_POKEMON);
-    const hintedMew = hasPokemonHintAccess(options.playerName) && containsAnyLoose(p, ["Mew"]);
-    if (!(standardPokemon || hintedMew)) {
-      failures.push("Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.");
-    }
+  if (maxRound >= 11 && !containsAnyLoose(p, GEN1_POKEMON)) {
+    failures.push("Passordet må inneholde navnet på en Pokémon fra de første 151 i Pokédex.");
   }
 
   if (maxRound >= 12 && !hasMesternesMesterInitials(p)) {
