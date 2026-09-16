@@ -152,7 +152,7 @@ const FAILURE_LABELS = new Map([
   ["Passordet må inneholde det hemmelige ordet som låses opp i tidslinjen.", "Regel 7"],
   ["Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.", "Regel 8"],
   ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 10"],
-  ["Passordet må inneholde navnet på en Pokémon fra de første 150 i Pokédex.", "Regel 11"],
+  ["Passordet må inneholde navnet på en Pokémon fra de første 151 i Pokédex.", "Regel 11"],
   ["Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.", "Regel 12"],
   ["Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.", "Regel 13"],
   ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 14"],
