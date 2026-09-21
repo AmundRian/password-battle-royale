@@ -499,38 +499,15 @@ function walterInlineHtml() {
 }
 
 function rulesHtml() {
-  const rules = state?.rules || [];
-  if (!rules.length) return `<p class="muted">Rules appear when the host starts the game.</p>`;
-
-  // Alle aktive regler vises i naturlig rekkefølge. Walter-regelen forblir synlig
-  // som regel 9 også fra runde 10, mens selve Walter-bildet flyttes til passordfeltet.
-  // Dermed står den nyeste regelen alltid nederst: 1, 2, 3 ... gjeldende runde.
-  const visibleRules = rules
-    .map((rule, index) => ({ rule, number: index + 1 }));
-
-  return `<ol class="rules">
-    ${visibleRules.map(({ rule: r, number }) => {
-      const hint = r.id === "pokemon" && !hostMode && hasPokemonHint()
-        ? `<details class="rule-hint">
-            <summary>Hint til oss over 50 år</summary>
-            <div>Du kan bruke ett av disse alternativene: <strong>Mew</strong>, <strong>Muk</strong> eller <strong>Ekans</strong>.</div>
-          </details>`
-        : "";
-      const media = r.id === "animals"
-        ? animalRuleImagesHtml()
-        : (r.id === "meeting_year" ? meetingRuleImagesHtml() : "");
-      const timeline = r.id === "timeline" && state?.meta?.round === 7 ? timelineRuleHtml() : "";
-      const timelineText = r.id === "timeline" && state?.meta?.round > 7
-        ? "Passordet ditt må fortsatt inneholde det hemmelige ordet du låste opp i regel 7."
-        : r.text;
-      const walter = r.id === "walter" && state?.meta?.round === 9 ? walterRoundEightRuleHtml() : "";
-      const withMedia = r.id === "animals" || r.id === "meeting_year" || Boolean(timeline) || Boolean(walter);
-      const latest = number === visibleRules.length;
-      return `<li class="${withMedia ? "rule-with-images " : ""}${latest ? "latest-rule" : ""}"><span>${number}</span><div>${esc(timelineText)}${media}${timeline}${hint}${walter}</div></li>`;
-    }).join("")}
-  </ol>`;
+  if (!state?.rules?.length) return `<p class="muted">Reglene kommer når hosten starter leken.</p>`;
+  const latestIndex = state.rules.length - 1;
+  const oldRules = state.rules.slice(0, latestIndex);
+  const latest = state.rules[latestIndex];
+  return `<div class="rules-summary"><strong>${state.rules.length} regel${state.rules.length === 1 ? "" : "er"} gjelder i denne runden</strong><span>Alle tidligere regler gjelder fortsatt.</span></div>
+    ${oldRules.length ? `<div class="rules-section-label old-rules-label">Regler du fortsatt må følge</div><ol class="rules active-rules-list old-rules-list">${oldRules.map((rule, i) => `<li><span>${i + 1}</span><div>${ruleHtml(rule, i + 1)}</div></li>`).join("")}</ol>` : ""}
+    <div class="rules-section-label new-rule-label">NY REGEL</div>
+    <ol class="rules active-rules-list latest-only"><li class="latest-rule"><span>${latestIndex + 1}</span><div>${ruleHtml(latest, latestIndex + 1)}</div></li></ol>`;
 }
-
 function playerStatusText(p) {
   const status = state?.meta?.status;
 
@@ -681,7 +658,7 @@ function playerPanel() {
     return `<div class="card danger">
       <h2>✕ Du ble eliminert i runde ${state.meta.round}</h2>
       ${failures.length
-        ? `<p>${failures.map(f => `<strong>${esc(f.rule)}:</strong> ${esc(f.text)}`).join("<br>")}</p>`
+        ? `<p>${failures.map(f => `❌ <strong>${esc(f.rule)}:</strong> ${esc(f.text)}`).join("<br>")}</p>`
         : `<p>${esc(self.reason || "Better luck next game.")}</p>`}
     </div>`;
   }
@@ -945,6 +922,7 @@ function hostPanel() {
 
   return `<div class="card host">
     <div class="eyebrow">HOST CONTROLS</div>
+    ${meta.status === "round_open" ? `<div class="host-ready-indicator"><strong>${state.players.filter(p => p.alive && p.hasSubmitted).length}/${state.players.filter(p => p.alive).length}</strong><span>har levert</span></div>` : ""}
 
     <label>Host key
       <input id="host-key" type="password" value="${esc(hostKey)}" placeholder="Same as HOST_KEY in Vercel">
@@ -991,7 +969,7 @@ function hostPreviewHtml() {
         <div class="status-block"><span>Testvisning</span><strong>Round 15/17</strong><small>kun forhåndsvisning</small></div>
       </header>
       <section class="card rules-card">
-        <div class="card-title"><h2>Active rules</h2><span>15/17</span></div>
+        <div class="card-title"><h2>Regler</h2><span>15/17</span></div>
         <ol class="rules preview-rules">
           <li><span>15</span><div>Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Engelske varianter godkjennes også. Når runden avsluttes, går gruppen eller gruppene med flest valg videre; grupper med færre valg blir eliminert. Hvis alle tre er like store, går alle videre.</div></li>
         </ol>
@@ -1014,7 +992,7 @@ function hostPreviewHtml() {
         <div class="status-block"><span>Testvisning</span><strong>Round 16/17</strong><small>kun forhåndsvisning</small></div>
       </header>
       <section class="card rules-card">
-        <div class="card-title"><h2>Active rules</h2><span>16/17</span></div>
+        <div class="card-title"><h2>Regler</h2><span>16/17</span></div>
         <ol class="rules preview-rules">
           <li><span>16</span><div>Siri og Amund lurer på hvor de skal dra på bryllupsreise. Passordet ditt må inneholde navnet på et land som har et flagg med kun to farger.</div></li>
         </ol>
@@ -1103,7 +1081,7 @@ function render() {
 
       <div class="status-block">
         <span>${statusText(meta.status)}</span>
-        <strong>${meta.round ? `Round ${meta.round}/${state.totalRules}` : `${total} player${total === 1 ? "" : "s"}`}</strong>
+        <strong>${meta.round ? `Runde ${meta.round} av ${state.totalRules}` : `${total} player${total === 1 ? "" : "s"}`}</strong>
         ${meta.status === "round_open"
           ? `<small id="header-countdown">${time}s left</small>`
           : `<small>${aliveCount} alive</small>`}
@@ -1118,7 +1096,7 @@ function render() {
       <div>
         <div class="card rules-card ${questionThemeClass()}">
           <div class="card-title">
-            <h2>Active rules</h2>
+            <h2>Regler</h2>
             <span>${meta.round}/${state.totalRules}</span>
           </div>
           ${specialThemeIntroHtml()}
