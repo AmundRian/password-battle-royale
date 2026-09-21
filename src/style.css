@@ -963,3 +963,17 @@ body.player-theme-marie::before {
   .participant-mode .rules-card .rules li.latest-rule,
   .participant-mode .rules-card .rules li.latest-rule > div { animation:none !important; }
 }
+
+
+/* UX clarity update */
+.rules-summary { display:flex; flex-direction:column; gap:3px; margin:0 0 14px; padding:11px 13px; border-radius:14px; background:rgba(255,255,255,.045); }
+.rules-summary strong { font-size:.95rem; }
+.rules-summary span { font-size:.78rem; opacity:.72; }
+.rules-section-label { margin:14px 0 8px; font-size:.72rem; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+.old-rules-label { opacity:.58; }
+.new-rule-label { color:#ffe36e; }
+.latest-only { margin-bottom:0; }
+.round-progress-pill { white-space:nowrap; }
+.host-ready-indicator { display:flex; align-items:baseline; gap:8px; margin:12px 0 14px; padding:12px 14px; border:1px solid rgba(255,227,110,.45); border-radius:14px; background:rgba(255,227,110,.08); }
+.host-ready-indicator strong { font-size:1.45rem; color:#ffe36e; }
+.host-ready-indicator span { font-weight:800; }
