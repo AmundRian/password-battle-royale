@@ -498,6 +498,34 @@ function walterInlineHtml() {
   </div>`;
 }
 
+
+function ruleHtml(rule, ruleNumber) {
+  const number = Number(ruleNumber) || 0;
+  let extras = "";
+
+  // Keep the visual/special parts of the relevant wedding rules.
+  if (number === 6) {
+    extras += animalRuleImagesHtml();
+  }
+  if (number === 7) {
+    extras += timelineRuleHtml();
+  }
+  if (number === 8) {
+    extras += meetingRuleImagesHtml();
+  }
+  if (number === 9) {
+    extras += walterRoundEightRuleHtml();
+  }
+  if (number === 11 && hasPokemonHint()) {
+    extras += `<details class="rule-hint">
+      <summary>Hint til oss over 50 år</summary>
+      <div>Mew, Muk eller Ekans kan være nyttige eksempler.</div>
+    </details>`;
+  }
+
+  return `<div class="rule-text">${esc(rule?.text || "")}</div>${extras}`;
+}
+
 function rulesHtml() {
   if (!state?.rules?.length) return `<p class="muted">Reglene kommer når hosten starter leken.</p>`;
   const latestIndex = state.rules.length - 1;
