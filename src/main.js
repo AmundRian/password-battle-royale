@@ -220,9 +220,16 @@ async function api(body = null) {
       ...(hostKey ? { "X-Host-Key": hostKey } : {})
     },
     body: JSON.stringify(body)
-  } : {};
+  } : {
+    method: "GET",
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache"
+    }
+  };
 
-  const response = await fetch("/api/game", options);
+  const url = body ? "/api/game" : `/api/game?_=${Date.now()}`;
+  const response = await fetch(url, options);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
   return data;
@@ -498,44 +505,76 @@ function walterInlineHtml() {
   </div>`;
 }
 
-
-function ruleHtml(rule, ruleNumber) {
-  const number = Number(ruleNumber) || 0;
-  let extras = "";
-
-  // Keep the visual/special parts of the relevant wedding rules.
-  if (number === 6) {
-    extras += animalRuleImagesHtml();
-  }
-  if (number === 7) {
-    extras += timelineRuleHtml();
-  }
-  if (number === 8) {
-    extras += meetingRuleImagesHtml();
-  }
-  if (number === 9) {
-    extras += walterRoundEightRuleHtml();
-  }
-  if (number === 11 && hasPokemonHint()) {
-    extras += `<details class="rule-hint">
-      <summary>Hint til oss over 50 år</summary>
-      <div>Mew, Muk eller Ekans kan være nyttige eksempler.</div>
-    </details>`;
-  }
-
-  return `<div class="rule-text">${esc(rule?.text || "")}</div>${extras}`;
-}
-
 function rulesHtml() {
-  if (!state?.rules?.length) return `<p class="muted">Reglene kommer når hosten starter leken.</p>`;
-  const latestIndex = state.rules.length - 1;
-  const oldRules = state.rules.slice(0, latestIndex);
-  const latest = state.rules[latestIndex];
-  return `<div class="rules-summary"><strong>${state.rules.length} regel${state.rules.length === 1 ? "" : "er"} gjelder i denne runden</strong><span>Alle tidligere regler gjelder fortsatt.</span></div>
-    ${oldRules.length ? `<div class="rules-section-label old-rules-label">Regler du fortsatt må følge</div><ol class="rules active-rules-list old-rules-list">${oldRules.map((rule, i) => `<li><span>${i + 1}</span><div>${ruleHtml(rule, i + 1)}</div></li>`).join("")}</ol>` : ""}
+  const rules = state?.rules || [];
+  if (!rules.length) {
+    return `<p class="muted">Reglene kommer når hosten starter leken.</p>`;
+  }
+
+  const currentRound = Number(state?.meta?.round || rules.length);
+  const latestNumber = rules.length;
+
+  const renderRule = (r, number, isLatest) => {
+    const hint = r.id === "pokemon" && !hostMode && hasPokemonHint()
+      ? `<details class="rule-hint">
+          <summary>Hint til oss over 50 år</summary>
+          <div>Du kan bruke ett av disse alternativene: <strong>Mew</strong>, <strong>Muk</strong> eller <strong>Ekans</strong>.</div>
+        </details>`
+      : "";
+
+    const media = r.id === "animals"
+      ? animalRuleImagesHtml()
+      : (r.id === "meeting_year" ? meetingRuleImagesHtml() : "");
+
+    // The timeline mini-game is only interactive in round 7.
+    const timeline = r.id === "timeline" && currentRound === 7
+      ? timelineRuleHtml()
+      : "";
+
+    const timelineText = r.id === "timeline" && currentRound > 7
+      ? "Passordet ditt må fortsatt inneholde det hemmelige ordet du låste opp i regel 7."
+      : r.text;
+
+    // Walter's large rule card is shown in his introduction round.
+    // From later rounds the small Walter control sits by the password field.
+    const walter = r.id === "walter" && currentRound === 9
+      ? walterRoundEightRuleHtml()
+      : "";
+
+    const withMedia = r.id === "animals" ||
+      r.id === "meeting_year" ||
+      Boolean(timeline) ||
+      Boolean(walter);
+
+    return `<li class="${withMedia ? "rule-with-images " : ""}${isLatest ? "latest-rule" : ""}">
+      <span>${number}</span>
+      <div>${esc(timelineText)}${media}${timeline}${hint}${walter}</div>
+    </li>`;
+  };
+
+  const oldRules = rules.slice(0, -1);
+  const latestRule = rules[rules.length - 1];
+
+  return `
+    <div class="rules-summary">
+      <strong>${rules.length} regel${rules.length === 1 ? "" : "er"} gjelder i denne runden</strong>
+      <span>Alle tidligere regler gjelder fortsatt.</span>
+    </div>
+
+    ${oldRules.length ? `
+      <div class="rules-section-label old-rules-label">Regler du fortsatt må følge</div>
+      <ol class="rules active-rules-list old-rules-list">
+        ${oldRules.map((r, i) => renderRule(r, i + 1, false)).join("")}
+      </ol>
+    ` : ""}
+
     <div class="rules-section-label new-rule-label">NY REGEL</div>
-    <ol class="rules active-rules-list latest-only"><li class="latest-rule"><span>${latestIndex + 1}</span><div>${ruleHtml(latest, latestIndex + 1)}</div></li></ol>`;
+    <ol class="rules active-rules-list latest-only">
+      ${renderRule(latestRule, latestNumber, true)}
+    </ol>
+  `;
 }
+
 function playerStatusText(p) {
   const status = state?.meta?.status;
 
@@ -625,8 +664,8 @@ function playerPanel() {
 
   if (!player || !self) {
     return `<div class="card">
-      <h2>Watching</h2>
-      <p class="muted">You aren't registered in this game. Ask the host to reset if you want to join.</p>
+      <h2>Ikke koblet til som deltaker</h2>
+      <p class="muted">Denne nettleseren finner ikke deltakerregistreringen din. Last inn siden på nytt. Hvis navnet ditt fortsatt står i spillerlisten, be hosten gjøre en full reset før dere tester på nytt.</p>
     </div>`;
   }
 
