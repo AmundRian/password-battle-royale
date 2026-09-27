@@ -767,6 +767,7 @@ function playerPanel() {
             <input
               class="password-input"
               name="password"
+              placeholder=""
               maxlength="200"
               autocomplete="off"
               required
@@ -1118,7 +1119,7 @@ function hostPreviewHtml() {
       </section>
       <section class="card accent play-card">
         <div class="submit-head"><h2>Submit your password</h2><div class="countdown">60s</div></div>
-        <label>Password<input class="password-input" value="" placeholder="Bygg videre på passordet ditt" readonly></label>
+        <label>Password<input class="password-input" value="" readonly></label>
         <button type="button" disabled>Submit / replace</button>
         <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
       </section>
@@ -1141,7 +1142,7 @@ function hostPreviewHtml() {
       </section>
       <section class="card accent play-card">
         <div class="submit-head"><h2>Submit your password</h2><div class="countdown">60s</div></div>
-        <label>Password<input class="password-input" value="" placeholder="Bygg videre på passordet ditt" readonly></label>
+        <label>Password<input class="password-input" value="" readonly></label>
         <button type="button" disabled>Submit / replace</button>
         <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
       </section>
@@ -1164,7 +1165,7 @@ function hostPreviewHtml() {
     </section>
     <section class="card accent play-card">
       <div class="submit-head"><h2>Siste revisjon</h2><div class="countdown">60s</div></div>
-      <label>Password<input class="password-input" value="" placeholder="Gjør siste forbedring" readonly></label>
+      <label>Password<input class="password-input" value="" readonly></label>
       <button type="button" disabled>Lever finalepassord</button>
       <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
     </section>
@@ -1238,14 +1239,14 @@ function render() {
 
     <section class="grid">
       <div>
-        <div class="card rules-card ${questionThemeClass()}">
+        ${hostMode || meta.status !== "results" ? `<div class="card rules-card ${questionThemeClass()}">
           <div class="card-title">
             <h2>Regler</h2>
             <span>${meta.round}/${state.totalRules}</span>
           </div>
           ${specialThemeIntroHtml()}
           ${rulesHtml()}
-        </div>
+        </div>` : ""}
 
         ${playerPanel()}
         ${mariusBetweenRoundsHtml()}
