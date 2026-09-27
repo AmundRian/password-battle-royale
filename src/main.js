@@ -482,7 +482,7 @@ function armResultOverlay(previousStatus, nextState) {
   if (key === resultOverlayKey) return;
 
   resultOverlayKey = key;
-  resultOverlayUntil = Date.now() + 6000;
+  resultOverlayUntil = Date.now() + 8000;
 
   if (resultOverlayTimer) clearTimeout(resultOverlayTimer);
   resultOverlayTimer = setTimeout(() => {
@@ -734,7 +734,6 @@ function playerPanel() {
         <div id="team-hint" class="team-hint" aria-live="polite"></div>
         <button>Join</button>
       </form>
-      <p class="muted tiny"><strong>Viktig:</strong> Bruk kun et passord laget for spillet. Innsendte passord blir vist til de andre deltakerne etter hver runde.</p>
     </div>`;
   }
 
@@ -1191,7 +1190,7 @@ function render() {
       <header>
         <div>
           
-          <h1>Password<br>Battle Royale</h1>
+          <h1>Passordet til<br>Siris hjerte</h1>
         </div>
       </header>
       <div class="card"><p>${lastError ? esc(lastError) : "Loading game…"}</p></div>
@@ -1221,7 +1220,7 @@ function render() {
     <header>
       <div>
         
-        <h1>Password<br>Battle Royale</h1>
+        <h1>Passordet til<br>Siris hjerte</h1>
       </div>
 
       <div class="status-block">
@@ -1257,7 +1256,7 @@ function render() {
       </div>
 
       <aside>
-        <div class="card">
+        <div class="card players-card">
           <div class="card-title">
             <h2 class="players-heading">Players</h2>
             <span>${aliveCount}/${total}</span>
