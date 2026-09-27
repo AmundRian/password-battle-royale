@@ -594,13 +594,15 @@ export default async function handler(req, res) {
       for (const p of playersAtStart) {
         const failureDetails = failureDetailsById.get(p.id) || [];
         const failed = failureDetails.length > 0;
-        const canUseTrainingLife = meta.round === 1 && failed && Number(p.lives ?? 2) > 1;
+        const isFinalRound = meta.round >= RULES.length;
+        const currentLives = Math.max(1, Number(p.lives ?? 2));
+        const canUseExtraLife = failed && !isFinalRound && currentLives > 1;
 
-        if (canUseTrainingLife) {
-          p.lives = 1;
+        if (canUseExtraLife) {
+          p.lives = currentLives - 1;
           p.alive = true;
           p.valid = false;
-          p.lostLifeRound = 1;
+          p.lostLifeRound = meta.round;
           p.eliminatedRound = null;
           p.reason = failureDetails.map(item => `${item.rule}: ${item.text}`).join(" · ");
         } else {
@@ -692,7 +694,9 @@ export default async function handler(req, res) {
           p.walterFeedRound = null;
           p.walterFeedCount = 0;
           p.walterFirstFedAt = null;
-          if (meta.round >= 1) p.lives = 1;
+          // Behold gjenværende liv mellom rundene.
+          // Når finalen (runde 17) starter, går alle finalister over til sudden death.
+          if (meta.round + 1 >= RULES.length) p.lives = 1;
           p.lostLifeRound = null;
           await savePlayer(p, redis);
         }
