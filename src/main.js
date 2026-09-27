@@ -770,8 +770,7 @@ function playerPanel() {
               maxlength="200"
               autocomplete="off"
               required
-              value="${esc(previousPassword)}"
-              placeholder="Build a password that passes every rule">
+              value="${esc(previousPassword)}">
           </label>
           ${walterInlineHtml()}
         </div>
