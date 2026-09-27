@@ -1157,6 +1157,11 @@ body.player-theme-marie::before {
 
 /* --- Mobile participant simplification --- */
 @media (max-width: 760px) {
+  /* Participant mobile: the rules card already shows round X/Y and the active countdown. */
+  body.participant-mode .status-block {
+    display: none !important;
+  }
+
   body.participant-mode .participant-hide-mobile,
   body.participant-mode .topbar .status-pill,
   body.participant-mode .topbar .round-status,
@@ -1168,7 +1173,7 @@ body.player-theme-marie::before {
 
   /* Hide only the Players card for participants on mobile.
      Do not hide the surrounding section/grid: it also contains the join form. */
-  body.participant-mode aside > .card:has(.players-heading) {
+  body.participant-mode .players-card {
     display: none !important;
   }
 
