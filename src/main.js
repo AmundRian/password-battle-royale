@@ -412,21 +412,18 @@ function lifeInfoHtml(self) {
 
   const round = Number(state?.meta?.round || 0);
   if (round >= state.totalRules) {
-    return `<div class="life-info sudden final-life">
+    return `<div class="life-info sudden final-life compact-life-info">
       <div class="life-hearts">❤️</div>
-      <div><strong>Finale · sudden death</strong><span>Ekstralivet er lagt bort. Ett regelbrudd betyr at du ryker ut.</span></div>
+      <div><strong>1 liv igjen</strong></div>
     </div>`;
   }
 
   const lives = Math.max(1, Number(self.lives ?? 2));
   const hearts = lives >= 2 ? "❤️❤️" : "❤️🖤";
-  const copy = lives >= 2
-    ? "Du har fortsatt et ekstraliv. Ett regelbrudd koster ett hjerte."
-    : "Du har ett liv igjen. Neste regelbrudd betyr eliminering.";
 
-  return `<div class="life-info ${lives >= 2 ? "training" : "sudden"}">
+  return `<div class="life-info ${lives >= 2 ? "training" : "sudden"} compact-life-info">
     <div class="life-hearts">${hearts}</div>
-    <div><strong>${lives} liv igjen</strong><span>${copy}</span></div>
+    <div><strong>${lives} liv igjen</strong></div>
   </div>`;
 }
 
@@ -485,13 +482,13 @@ function armResultOverlay(previousStatus, nextState) {
   if (key === resultOverlayKey) return;
 
   resultOverlayKey = key;
-  resultOverlayUntil = Date.now() + 4000;
+  resultOverlayUntil = Date.now() + 6000;
 
   if (resultOverlayTimer) clearTimeout(resultOverlayTimer);
   resultOverlayTimer = setTimeout(() => {
     resultOverlayUntil = 0;
     if (state?.meta?.status === "results") render();
-  }, 4050);
+  }, 6050);
 }
 
 function shortKingFinalHtml() {
@@ -1112,7 +1109,7 @@ function hostPreviewHtml() {
     return `<main class="host-preview-shell">
       <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
       <header>
-        <div><div class="eyebrow">Passordet til Siris hjerte</div><h1>Regel 15</h1></div>
+        <div><h1>Regel 15</h1></div>
         <div class="status-block"><span>Testvisning</span><strong>Round 15/17</strong><small>kun forhåndsvisning</small></div>
       </header>
       <section class="card rules-card">
@@ -1135,7 +1132,7 @@ function hostPreviewHtml() {
     return `<main class="host-preview-shell">
       <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
       <header>
-        <div><div class="eyebrow">Passordet til Siris hjerte</div><h1>Regel 16</h1></div>
+        <div><h1>Regel 16</h1></div>
         <div class="status-block"><span>Testvisning</span><strong>Round 16/17</strong><small>kun forhåndsvisning</small></div>
       </header>
       <section class="card rules-card">
@@ -1157,7 +1154,7 @@ function hostPreviewHtml() {
   return `<main class="host-preview-shell">
     <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
     <header>
-      <div><div class="eyebrow">Passordet til Siris hjerte</div><h1>Finale</h1></div>
+      <div><h1>Finale</h1></div>
       <div class="status-block"><span>Testvisning</span><strong>Round 17/17</strong><small>siste revisjon</small></div>
     </header>
     <section class="card rules-card">
@@ -1193,7 +1190,7 @@ function render() {
     app.innerHTML = `<main>
       <header>
         <div>
-          <div class="eyebrow">Passordet til Siris hjerte</div>
+          
           <h1>Password<br>Battle Royale</h1>
         </div>
       </header>
@@ -1211,6 +1208,7 @@ function render() {
 
   document.body.classList.toggle("participant-mode", !hostMode);
   document.body.classList.toggle("host-mode", hostMode);
+  document.body.classList.toggle("participant-mode", !hostMode);
   document.body.classList.toggle("player-theme-marie", !hostMode && normalizedNickname(currentNickname()) === "marie");
 
   const winnerText = meta.status === "game_over"
@@ -1222,7 +1220,7 @@ function render() {
   app.innerHTML = `<main>
     <header>
       <div>
-        <div class="eyebrow">Passordet til Siris hjerte</div>
+        
         <h1>Password<br>Battle Royale</h1>
       </div>
 
@@ -1261,7 +1259,7 @@ function render() {
       <aside>
         <div class="card">
           <div class="card-title">
-            <h2>Players</h2>
+            <h2 class="players-heading">Players</h2>
             <span>${aliveCount}/${total}</span>
           </div>
           ${playersHtml()}
