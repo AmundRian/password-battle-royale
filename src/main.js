@@ -34,6 +34,9 @@ let lastError = "";
 let lastSubmit = null;
 let polling = null;
 let timelineMessage = "";
+let resultOverlayKey = "";
+let resultOverlayUntil = 0;
+let resultOverlayTimer = null;
 
 function readJson(v) {
   try { return JSON.parse(v); } catch { return null; }
@@ -242,6 +245,7 @@ async function refresh() {
 
     const nextState = await api();
     reconcileGameSession(nextState);
+    armResultOverlay(previousStatus, nextState);
     const changed = JSON.stringify(nextState) !== JSON.stringify(state);
 
     if (
@@ -405,14 +409,89 @@ function starsHtml(stars) {
 
 function lifeInfoHtml(self) {
   if (!self?.alive || state?.meta?.status !== "round_open") return "";
-  if (state.meta.round === 1) {
-    const lives = Math.max(1, Number(self.lives ?? 2));
-    return `<div class="life-info training"><div class="life-hearts">${lives >= 2 ? "❤️❤️" : "❤️🖤"}</div><div><strong>Ekstra liv i første runde</strong><span>Feiler du denne runden, bruker du ekstralivet og får fortsette. Fra runde 2 har alle bare ett liv.</span></div></div>`;
+
+  const round = Number(state?.meta?.round || 0);
+  if (round >= state.totalRules) {
+    return `<div class="life-info sudden final-life">
+      <div class="life-hearts">❤️</div>
+      <div><strong>Finale · sudden death</strong><span>Ekstralivet er lagt bort. Ett regelbrudd betyr at du ryker ut.</span></div>
+    </div>`;
   }
-  if (state.meta.round === 2) {
-    return `<div class="life-info sudden"><div class="life-hearts">❤️</div><div><strong>Ett liv fra nå av</strong><span>Fra runde 2 er du ute dersom passordet ikke oppfyller rundens krav.</span></div></div>`;
+
+  const lives = Math.max(1, Number(self.lives ?? 2));
+  const hearts = lives >= 2 ? "❤️❤️" : "❤️🖤";
+  const copy = lives >= 2
+    ? "Du har fortsatt et ekstraliv. Ett regelbrudd koster ett hjerte."
+    : "Du har ett liv igjen. Neste regelbrudd betyr eliminering.";
+
+  return `<div class="life-info ${lives >= 2 ? "training" : "sudden"}">
+    <div class="life-hearts">${hearts}</div>
+    <div><strong>${lives} liv igjen</strong><span>${copy}</span></div>
+  </div>`;
+}
+
+function resultOverlayHtml() {
+  if (hostMode || state?.meta?.status !== "results") return "";
+  if (!resultOverlayUntil || Date.now() >= resultOverlayUntil) return "";
+
+  const result = currentRoundSelfResult();
+  if (!result) return "";
+
+  const lives = Math.max(0, Number(selfState()?.lives ?? (result.survived ? 1 : 0)));
+  const hearts = lives >= 2 ? "❤️❤️" : (lives === 1 ? "❤️🖤" : "🖤🖤");
+  const failureText = (result.failures || [])
+    .map(f => `<div class="result-overlay-reason">❌ <strong>${esc(f.rule)}:</strong> ${esc(f.text)}</div>`)
+    .join("");
+
+  if (result.survived && result.lostLife) {
+    return `<div class="round-result-overlay life-hit">
+      <div class="round-result-burst">💔</div>
+      <div class="round-result-kicker">RUNDE ${state.meta.round}</div>
+      <h2>DU MISTET ETT LIV</h2>
+      <p class="round-result-sub">Men du er fortsatt med!</p>
+      ${failureText}
+      <div class="round-result-hearts">${hearts}</div>
+      <small>${lives} liv igjen</small>
+    </div>`;
   }
-  return "";
+
+  if (result.survived) {
+    return `<div class="round-result-overlay survived">
+      <div class="round-result-burst">✓</div>
+      <div class="round-result-kicker">RUNDE ${state.meta.round}</div>
+      <h2>DU ER VIDERE!</h2>
+      <p class="round-result-sub">${result.starAwarded ? "⭐ Du fikk også en Short King-stjerne!" : "Passordet ditt bestod runden."}</p>
+      <div class="round-result-hearts">${hearts}</div>
+      <small>${lives} liv igjen</small>
+    </div>`;
+  }
+
+  return `<div class="round-result-overlay eliminated">
+    <div class="round-result-burst">✕</div>
+    <div class="round-result-kicker">RUNDE ${state.meta.round}</div>
+    <h2>DU ER ELIMINERT</h2>
+    <p class="round-result-sub">Siste liv er brukt.</p>
+    ${failureText || `<div class="result-overlay-reason">${esc(selfState()?.reason || "Passordet oppfylte ikke rundens krav.")}</div>`}
+    <div class="round-result-hearts">🖤🖤</div>
+  </div>`;
+}
+
+function armResultOverlay(previousStatus, nextState) {
+  if (hostMode) return;
+  const nextStatus = nextState?.meta?.status;
+  if (previousStatus !== "round_open" || nextStatus !== "results") return;
+
+  const key = `${nextState?.meta?.sessionId || "session"}:${nextState?.meta?.round || 0}`;
+  if (key === resultOverlayKey) return;
+
+  resultOverlayKey = key;
+  resultOverlayUntil = Date.now() + 4000;
+
+  if (resultOverlayTimer) clearTimeout(resultOverlayTimer);
+  resultOverlayTimer = setTimeout(() => {
+    resultOverlayUntil = 0;
+    if (state?.meta?.status === "results") render();
+  }, 4050);
 }
 
 function shortKingFinalHtml() {
@@ -582,7 +661,7 @@ function playerStatusText(p) {
     return `Eliminated${p.eliminatedRound ? ` · round ${p.eliminatedRound}` : ""}`;
   }
 
-  if (status === "results") return p.lostLifeRound === state?.meta?.round ? "Ekstraliv brukt · videre" : "Survived";
+  if (status === "results") return p.lostLifeRound === state?.meta?.round ? `Mistet liv · ${Math.max(1, Number(p.lives || 1))} igjen` : "Videre";
   if (status === "game_over") return "Finalist";
   if (status === "round_open") return p.hasSubmitted ? "Submitted" : "Waiting";
   return "Ready";
@@ -713,7 +792,8 @@ function playerPanel() {
 
     if (result?.survived) {
       if (result.lostLife) {
-        return `<div class="card life-lost"><h2>❤️ Du brukte ekstralivet</h2><p>Passordet bestod ikke runde 1, men du er fortsatt med. Fra runde 2 har du ett liv.</p></div>`;
+        const lives = Math.max(1, Number(self.lives ?? 1));
+        return `<div class="card life-lost"><h2>💔 Du mistet ett liv – men er videre</h2><p>Passordet brøt en regel denne runden. Du har <strong>${lives} liv</strong> igjen.</p></div>`;
       }
       return `<div class="card winner">
         <h2>✓ Du gikk videre fra runde ${state.meta.round}${result.starAwarded ? " ⭐" : ""}</h2>
@@ -1158,6 +1238,7 @@ function render() {
     ${lastError ? `<div class="notice bad">${esc(lastError)}</div>` : ""}
     ${winnerText ? `<div class="hero-winner">🏆 ${winnerText}</div>` : ""}
     ${shortKingFinalHtml()}
+    ${resultOverlayHtml()}
 
     <section class="grid">
       <div>
