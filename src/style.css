@@ -1166,10 +1166,9 @@ body.player-theme-marie::before {
     display: none !important;
   }
 
-  /* Hide Players section for participants on mobile, in lobby/round/results. */
-  body.participant-mode .card:has(.players-heading),
-  body.participant-mode section:has(.players-heading),
-  body.participant-mode aside:has(.players-heading) {
+  /* Hide only the Players card for participants on mobile.
+     Do not hide the surrounding section/grid: it also contains the join form. */
+  body.participant-mode aside > .card:has(.players-heading) {
     display: none !important;
   }
 
