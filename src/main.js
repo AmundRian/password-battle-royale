@@ -482,7 +482,7 @@ function armResultOverlay(previousStatus, nextState) {
   if (key === resultOverlayKey) return;
 
   resultOverlayKey = key;
-  resultOverlayUntil = Date.now() + 8000;
+  resultOverlayUntil = Date.now() + 6000;
 
   if (resultOverlayTimer) clearTimeout(resultOverlayTimer);
   resultOverlayTimer = setTimeout(() => {
