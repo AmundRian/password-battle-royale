@@ -302,22 +302,33 @@ function restoreInputState(saved) {
 function fitPasswordInput(input) {
   if (!(input instanceof HTMLInputElement)) return;
   const maxPx = 20;
-  const minPx = 10;
+  const minPx = 16;
   input.style.fontSize = `${maxPx}px`;
-  // Use the rendered scroll width so the complete password stays visible as long as possible.
-  const available = Math.max(1, input.clientWidth - 10);
-  const needed = Math.max(1, input.scrollWidth - 10);
+  const available = Math.max(1, input.clientWidth - 16);
+  const needed = Math.max(1, input.scrollWidth - 16);
   if (needed > available) {
     const fitted = Math.max(minPx, Math.min(maxPx, maxPx * available / needed));
     input.style.fontSize = `${fitted.toFixed(2)}px`;
   }
 }
 
+function updatePasswordPreview(input) {
+  if (!(input instanceof HTMLInputElement)) return;
+  fitPasswordInput(input);
+  const preview = document.querySelector("#password-full-preview");
+  if (!(preview instanceof HTMLElement)) return;
+  const value = String(input.value || "");
+  preview.textContent = value;
+  const overflows = input.scrollWidth > input.clientWidth + 2;
+  preview.classList.toggle("visible", Boolean(value) && overflows);
+}
+
 function setupPasswordInputAutoFit() {
   const input = document.querySelector('input[name="password"]');
   if (!(input instanceof HTMLInputElement)) return;
-  const resize = () => fitPasswordInput(input);
+  const resize = () => updatePasswordPreview(input);
   input.addEventListener("input", resize);
+  window.addEventListener("resize", resize, { passive: true });
   requestAnimationFrame(resize);
 }
 
@@ -773,6 +784,7 @@ function playerPanel() {
               required
               value="${esc(previousPassword)}">
           </label>
+          <div id="password-full-preview" class="password-full-preview" aria-live="polite"></div>
           ${walterInlineHtml()}
         </div>
         <button ${time === 0 || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Lever passord"}</button>

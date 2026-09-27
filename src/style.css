@@ -456,6 +456,23 @@ body.player-theme-marie::before {
   line-height:1.25;
   transition:font-size .08s linear;
 }
+
+.password-full-preview {
+  display:none;
+  width:100%;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid #353b52;
+  background:#101421;
+  color:#dfe3f3;
+  font-size:14px;
+  line-height:1.35;
+  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.password-full-preview.visible { display:block; }
 .walter-interaction { min-width:0; }
 .walter-inline {
   width:160px;
