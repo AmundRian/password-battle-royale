@@ -1153,3 +1153,45 @@ body.player-theme-marie::before {
     animation: none !important;
   }
 }
+
+
+/* --- Mobile participant simplification --- */
+@media (max-width: 760px) {
+  body.participant-mode .participant-hide-mobile,
+  body.participant-mode .topbar .status-pill,
+  body.participant-mode .topbar .round-status,
+  body.participant-mode .topbar .timer,
+  body.participant-mode .header-meta,
+  body.participant-mode .round-open-label {
+    display: none !important;
+  }
+
+  /* Hide Players section for participants on mobile, in lobby/round/results. */
+  body.participant-mode .card:has(.players-heading),
+  body.participant-mode section:has(.players-heading),
+  body.participant-mode aside:has(.players-heading) {
+    display: none !important;
+  }
+
+  body.participant-mode .players-heading {
+    display: none !important;
+  }
+
+  /* Keep the participant view single-column and focused on the active task. */
+  body.participant-mode .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.participant-mode .compact-life-info {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  body.participant-mode .compact-life-info .life-hearts {
+    font-size: 1.35rem;
+  }
+
+  body.participant-mode .compact-life-info strong {
+    font-size: .95rem;
+  }
+}
