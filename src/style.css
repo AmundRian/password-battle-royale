@@ -1513,3 +1513,9 @@ body.player-theme-marie::before {
   .final-awards-card { border-radius: 20px; padding: 30px 18px; }
   .final-awards-rule { margin: 24px auto; }
 }
+
+/* V10.6: make egg action buttons react immediately and consistently on touch devices. */
+.egg-actions button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}

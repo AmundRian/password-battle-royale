@@ -1706,7 +1706,23 @@ function bindEvents() {
       eggDrag.style.transform = "";
     });
   }
-  document.querySelector("#egg-stop")?.addEventListener("click", stopEggTimer);
+  const eggStopButton = document.querySelector("#egg-stop");
+  if (eggStopButton) {
+    // Mobil: stopp straks fingeren treffer knappen. Et vanlig `click` kan bli
+    // forsinket eller gå tapt dersom polling/render bytter DOM-node midt i trykket.
+    eggStopButton.addEventListener("pointerdown", e => {
+      if (e.pointerType === "mouse") return;
+      e.preventDefault();
+      e.stopPropagation();
+      stopEggTimer();
+    });
+    // PC, tastatur og fallback. stopEggTimer() er idempotent, så et eventuelt
+    // etterfølgende click kan ikke endre den allerede lagrede stopptiden.
+    eggStopButton.addEventListener("click", e => {
+      e.preventDefault();
+      stopEggTimer();
+    });
+  }
   document.querySelector("#egg-retry")?.addEventListener("click", resetEggTimer);
   document.querySelector("#egg-confirm")?.addEventListener("click", async e => {
     const button = e.currentTarget;
