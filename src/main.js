@@ -41,8 +41,10 @@ let roundIntroKey = "";
 let roundIntroUntil = 0;
 let participantRoundDeadline = 0;
 let winnerOverlayKey = "";
+let winnerOverlayStartsAt = 0;
 let winnerOverlayUntil = 0;
 let winnerOverlayTimer = null;
+let winnerOverlayEndTimer = null;
 
 function readJson(v) {
   try { return JSON.parse(v); } catch { return null; }
@@ -646,14 +648,31 @@ function armWinnerOverlay(previousStatus, nextState) {
   if (hostMode || previousStatus === "game_over" || nextState?.meta?.status !== "game_over") return;
   const key = `${nextState?.meta?.sessionId || "session"}:game-over`;
   if (key === winnerOverlayKey) return;
+
   winnerOverlayKey = key;
-  winnerOverlayUntil = Date.now() + 5000;
+  // Finalen skal feires umiddelbart når hosten avslutter spillet.
+  // Vinner-overlayet har høyere prioritet enn ordinær rundefeedback.
+  const delay = 0;
+  winnerOverlayStartsAt = Date.now();
+  winnerOverlayUntil = winnerOverlayStartsAt + 5000;
+
   if (winnerOverlayTimer) clearTimeout(winnerOverlayTimer);
-  winnerOverlayTimer = setTimeout(() => { winnerOverlayUntil = 0; if (state?.meta?.status === "game_over") render(); }, 5050);
+  if (winnerOverlayEndTimer) clearTimeout(winnerOverlayEndTimer);
+
+  winnerOverlayTimer = setTimeout(() => {
+    if (state?.meta?.status === "game_over") render();
+  }, delay + 25);
+
+  winnerOverlayEndTimer = setTimeout(() => {
+    winnerOverlayStartsAt = 0;
+    winnerOverlayUntil = 0;
+    if (state?.meta?.status === "game_over") render();
+  }, delay + 5050);
 }
 
 function winnerCelebrationHtml() {
-  if (hostMode || state?.meta?.status !== "game_over" || !winnerOverlayUntil || Date.now() >= winnerOverlayUntil) return "";
+  const now = Date.now();
+  if (hostMode || state?.meta?.status !== "game_over" || !winnerOverlayUntil || now < winnerOverlayStartsAt || now >= winnerOverlayUntil) return "";
   const winners = state.meta.winners || [];
   const kings = state.meta.shortKings || [];
   if (!winners.length && !kings.length) return "";
@@ -679,6 +698,31 @@ function shortKingFinalHtml() {
     <span>${same ? "👑⭐" : "⭐"}</span>
     <div><small>${same ? "DOUBLE CROWN" : "THE SHORT KING"}</small><strong>${kings.map(esc).join(" & ")}</strong><p>${state.meta.shortKingStars || 0} stjerne${Number(state.meta.shortKingStars || 0) === 1 ? "" : "r"}</p></div>
   </div>`;
+}
+
+function finalAwardsCardHtml() {
+  if (state?.meta?.status !== "game_over") return "";
+  const winners = state.meta.winners || [];
+  const kings = state.meta.shortKings || [];
+  if (!winners.length && !kings.length) return "";
+  const same = winners.length && kings.length && winners.length === kings.length && winners.every(name => kings.includes(name));
+
+  if (same) {
+    return `<section class="final-awards-card double-crown-card" aria-label="Sluttresultat">
+      <div class="final-awards-kicker">SLUTTRESULTAT</div>
+      <div class="final-awards-icon">🏆 ⭐</div>
+      <div class="final-awards-label">DOUBLE CROWN</div>
+      <div class="final-awards-name">${winners.map(esc).join(" & ")}</div>
+      <div class="final-awards-caption">Vinner av Passordet til Siris hjerte · THE SHORT KING</div>
+    </section>`;
+  }
+
+  return `<section class="final-awards-card" aria-label="Sluttresultat">
+    <div class="final-awards-kicker">SLUTTRESULTAT</div>
+    ${winners.length ? `<div class="final-awards-section"><div class="final-awards-icon">🏆</div><div class="final-awards-label">VINNER AV PASSORDET TIL SIRIS HJERTE</div><div class="final-awards-name">${winners.map(esc).join(" & ")}</div></div>` : ""}
+    ${winners.length && kings.length ? `<div class="final-awards-rule"></div>` : ""}
+    ${kings.length ? `<div class="final-awards-section"><div class="final-awards-icon">⭐</div><div class="final-awards-label">THE SHORT KING</div><div class="final-awards-name short">${kings.map(esc).join(" & ")}</div></div>` : ""}
+  </section>`;
 }
 
 function animalRuleImagesHtml() {
@@ -940,6 +984,7 @@ function playerPanel() {
       </div>
 
       <form id="submit-form">
+        ${state.meta.round === 12 ? eggHtml() : ""}
         <div class="password-entry-row ${state.meta.round >= 10 ? "with-walter" : ""}">
           <label>Password
             <input
@@ -957,7 +1002,6 @@ function playerPanel() {
           <div id="password-full-preview" class="password-full-preview" aria-live="polite"></div>
           ${walterInlineHtml()}
         </div>
-        ${eggHtml()}
         ${state.meta.round === 12 ? "" : `<button ${time === 0 || roundIntroActive() || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Lever passord"}</button>`}
       </form>
 
@@ -1414,8 +1458,7 @@ function render() {
     </header>
 
     ${lastError ? `<div class="notice bad">${esc(lastError)}</div>` : ""}
-    ${winnerText ? `<div class="hero-winner">🏆 ${winnerText}</div>` : ""}
-    ${shortKingFinalHtml()}
+    ${meta.status === "game_over" ? finalAwardsCardHtml() : (winnerText ? `<div class="hero-winner">🏆 ${winnerText}</div>` : "")}
     ${resultOverlayHtml()}
     ${winnerCelebrationHtml()}
     ${roundStartOverlayHtml()}
