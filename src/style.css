@@ -1249,6 +1249,10 @@ body.player-theme-marie::before {
 }
 
 
+/* V10.2: old timeline helper copy must never be shown, even if a browser reuses stale markup. */
+.timeline-game-head > span,
+.timeline-caption > small { display: none !important; }
+
 /* Runde 12: mobilvennlig egg-utfordring. */
 .egg-challenge {
   margin: 4px 0 4px;

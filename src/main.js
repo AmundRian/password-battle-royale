@@ -322,6 +322,7 @@ function eggHtml() {
   const egg = getEggState();
   const elapsed = eggElapsedMs();
   const stopped = egg && Number.isFinite(egg.stoppedElapsedMs);
+
   if (!egg) {
     return `<div class="egg-challenge" id="egg-challenge">
       <div class="egg-title"><strong>Kok et smilende egg 🥚</strong><span>1 sekund = 1 minutt</span></div>
@@ -330,7 +331,8 @@ function eggHtml() {
         <button type="button" class="egg-drag" id="egg-drag" aria-label="Dra egget til kjelen"><span>🥚</span></button>
         <div class="egg-arrow" aria-hidden="true">↓</div>
         <div class="pot-wrap" id="egg-pot" aria-label="Kjele med kokende vann">
-          <div class="pot-steam"><i></i><i></i><i></i></div><div class="pot-rim"></div>
+          <div class="pot-steam"><i></i><i></i><i></i></div>
+          <div class="pot-rim"></div>
           <div class="pot-water"><span></span><span></span><span></span></div>
           <div class="pot-body"><div class="pot-handle"></div></div>
         </div>
@@ -338,10 +340,16 @@ function eggHtml() {
       <div class="egg-hint">Hold fingeren på egget og dra det ned i kjelen.</div>
     </div>`;
   }
+
   return `<div class="egg-challenge cooking ${stopped ? "stopped" : ""}" id="egg-challenge">
     <div class="egg-title"><strong>${stopped ? "Timeren er stoppet" : "Egget koker…"}</strong><span>1 sekund = 1 minutt</span></div>
     <div class="cooking-scene">
-      <div class="pot-wrap pot-active" aria-hidden="true"><div class="pot-steam"><i></i><i></i><i></i></div><div class="pot-rim"></div><div class="pot-water"><span></span><span></span><span></span><b>🥚</b></div><div class="pot-body"><div class="pot-handle"></div></div></div>
+      <div class="pot-wrap pot-active" aria-hidden="true">
+        <div class="pot-steam"><i></i><i></i><i></i></div>
+        <div class="pot-rim"></div>
+        <div class="pot-water"><span></span><span></span><span></span><b>🥚</b></div>
+        <div class="pot-body"><div class="pot-handle"></div></div>
+      </div>
       <div class="egg-clock"><small>TID</small><strong id="egg-timer">${formatEggTime(elapsed)}</strong><span>sekunder</span></div>
     </div>
     <div class="egg-actions">
@@ -353,6 +361,16 @@ function eggHtml() {
   </div>`;
 }
 
+/*
+  IMPORTANT TYPING FIX
+  --------------------
+  The old practice version captured the text field BEFORE waiting for the API.
+  If the player typed while that request was in flight, those new characters
+  were replaced by the older captured value when the page re-rendered.
+
+  We now capture the field immediately before the synchronous DOM redraw,
+  exactly like the wedding game. This preserves every character and the cursor.
+*/
 function captureInputState() {
   const el = document.activeElement;
   if (!el || !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return null;
@@ -410,7 +428,7 @@ function updatePasswordPreview(input) {
 }
 
 function setupPasswordInputAutoFit() {
-  const input = document.querySelector('input[name="password"]');
+  const input = document.querySelector("#password-input");
   if (!(input instanceof HTMLInputElement)) return;
   const resize = () => updatePasswordPreview(input);
   input.addEventListener("input", resize);
@@ -925,20 +943,23 @@ function playerPanel() {
         <div class="password-entry-row ${state.meta.round >= 10 ? "with-walter" : ""}">
           <label>Password
             <input
+              id="password-input"
               class="password-input"
               name="password"
-              placeholder=""
               maxlength="200"
               autocomplete="off"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck="false"
               required
               value="${esc(previousPassword)}">
           </label>
           <div id="password-full-preview" class="password-full-preview" aria-live="polite"></div>
           ${walterInlineHtml()}
         </div>
+        ${eggHtml()}
         ${state.meta.round === 12 ? "" : `<button ${time === 0 || roundIntroActive() || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Lever passord"}</button>`}
       </form>
-      ${eggHtml()}
 
       ${lastSubmit ? `<div class="feedback good">✓ Passordet er lagret. Resultatet vises når runden avsluttes.</div>` : ""}
 
@@ -1608,20 +1629,39 @@ function bindEvents() {
     }
   });
 
+  // Runde 12: samme mobilvennlige Pointer Events-flyt som i prøverunden.
   const eggDrag = document.querySelector("#egg-drag");
   if (eggDrag) {
-    let dragging = false, startX = 0, startY = 0;
-    eggDrag.addEventListener("pointerdown", e => { dragging = true; startX = e.clientX; startY = e.clientY; eggDrag.setPointerCapture?.(e.pointerId); eggDrag.classList.add("dragging"); });
-    eggDrag.addEventListener("pointermove", e => { if (!dragging) return; eggDrag.style.transform = `translate(${e.clientX-startX}px, ${e.clientY-startY}px) scale(1.08)`; });
+    let dragging = false;
+    let startX = 0, startY = 0;
+    eggDrag.addEventListener("pointerdown", e => {
+      dragging = true;
+      startX = e.clientX; startY = e.clientY;
+      eggDrag.setPointerCapture?.(e.pointerId);
+      eggDrag.classList.add("dragging");
+      e.preventDefault();
+    });
+    eggDrag.addEventListener("pointermove", e => {
+      if (!dragging) return;
+      eggDrag.style.transform = `translate(${e.clientX - startX}px, ${e.clientY - startY}px) scale(1.08)`;
+      e.preventDefault();
+    });
     eggDrag.addEventListener("pointerup", e => {
-      if (!dragging) return; dragging = false; eggDrag.releasePointerCapture?.(e.pointerId);
+      if (!dragging) return;
+      dragging = false;
+      eggDrag.releasePointerCapture?.(e.pointerId);
       const pot = document.querySelector("#egg-pot");
       const rect = pot?.getBoundingClientRect();
       const hit = rect && e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
-      eggDrag.classList.remove("dragging"); eggDrag.style.transform = "";
+      eggDrag.classList.remove("dragging");
+      eggDrag.style.transform = "";
       if (hit) startEggTimer();
     });
-    eggDrag.addEventListener("pointercancel", () => { dragging = false; eggDrag.classList.remove("dragging"); eggDrag.style.transform = ""; });
+    eggDrag.addEventListener("pointercancel", () => {
+      dragging = false;
+      eggDrag.classList.remove("dragging");
+      eggDrag.style.transform = "";
+    });
   }
   document.querySelector("#egg-stop")?.addEventListener("click", stopEggTimer);
   document.querySelector("#egg-retry")?.addEventListener("click", resetEggTimer);
@@ -1635,7 +1675,7 @@ function bindEvents() {
       let elapsed = eggElapsedMs();
       if (!Number.isFinite(elapsed)) throw new Error("Timeren er ikke startet.");
       if (!Number.isFinite(egg.stoppedElapsedMs)) { egg = { ...egg, stoppedElapsedMs: elapsed }; saveEggState(egg); }
-      const input = document.querySelector('input[name="password"]');
+      const input = document.querySelector("#password-input");
       const password = String(input?.value || "");
       if (!password) throw new Error("Skriv inn et passord før du stopper egg-tiden.");
       button.disabled = true;
@@ -1757,7 +1797,7 @@ refresh();
 polling = setInterval(refresh, 2000);
 setInterval(tick, 250);
 window.addEventListener("resize", () => {
-  const input = document.querySelector('input[name="password"]');
+  const input = document.querySelector("#password-input");
   if (input) fitPasswordInput(input);
 });
 window.addEventListener("beforeunload", () => clearInterval(polling));

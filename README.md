@@ -76,4 +76,7 @@ npm run dev
 - The game is intentionally simple and private-friend oriented.
 - Passwords are stored only in Redis for the duration of the game and are never returned in the public game-state API.
 - Pressing **Reset entire game** removes the current player list and game state.
-- This edition uses a compact set of 10 cumulative password rules. The rules can be edited in `api/_lib/game.js`.
+- This edition uses a compact set of 11 cumulative password rules. The rules can be edited in `api/_lib/game.js`.
+
+## Latest 13-rule update
+The game now has 13 rounds, including the animal image challenge at round 6, the supplied childhood-photo year challenge at round 7, and a Mesternes mester initials challenge at round 10. Marie has a neon/sakura player theme with positive between-round messages.
