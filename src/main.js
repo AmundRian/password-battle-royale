@@ -40,6 +40,9 @@ let resultOverlayTimer = null;
 let roundIntroKey = "";
 let roundIntroUntil = 0;
 let participantRoundDeadline = 0;
+let winnerOverlayKey = "";
+let winnerOverlayUntil = 0;
+let winnerOverlayTimer = null;
 
 function readJson(v) {
   try { return JSON.parse(v); } catch { return null; }
@@ -249,6 +252,7 @@ async function refresh() {
     const nextState = await api();
     reconcileGameSession(nextState);
     armResultOverlay(previousStatus, nextState);
+    armWinnerOverlay(previousStatus, nextState);
     armRoundIntro(previousStatus, previousRound, nextState);
     const changed = JSON.stringify(nextState) !== JSON.stringify(state);
 
@@ -269,6 +273,84 @@ async function refresh() {
     lastError = message;
     if (changed || !state) render();
   }
+}
+
+function eggStorageKey() {
+  return player?.id ? `pbrWeddingEgg:${player.id}:12` : "";
+}
+
+function getEggState() {
+  const key = eggStorageKey();
+  if (!key) return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    if (!parsed || !Number.isFinite(Number(parsed.startedAt))) return null;
+    return { startedAt: Number(parsed.startedAt), stoppedElapsedMs: parsed.stoppedElapsedMs == null ? null : Number(parsed.stoppedElapsedMs) };
+  } catch { return null; }
+}
+
+function saveEggState(value) {
+  const key = eggStorageKey();
+  if (!key) return;
+  if (!value) localStorage.removeItem(key);
+  else localStorage.setItem(key, JSON.stringify(value));
+}
+
+function eggElapsedMs() {
+  const egg = getEggState();
+  if (!egg) return null;
+  if (Number.isFinite(egg.stoppedElapsedMs)) return Math.max(0, egg.stoppedElapsedMs);
+  return Math.max(0, Date.now() - egg.startedAt);
+}
+
+function formatEggTime(ms) {
+  if (!Number.isFinite(Number(ms))) return "0.00";
+  return (Math.max(0, Number(ms)) / 1000).toFixed(2);
+}
+
+function startEggTimer() { saveEggState({ startedAt: Date.now(), stoppedElapsedMs: null }); render(); }
+function stopEggTimer() {
+  const egg = getEggState();
+  if (!egg || Number.isFinite(egg.stoppedElapsedMs)) return;
+  saveEggState({ ...egg, stoppedElapsedMs: Date.now() - egg.startedAt });
+  render();
+}
+function resetEggTimer() { saveEggState(null); render(); }
+
+function eggHtml() {
+  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 12 || !selfState()?.alive) return "";
+  const egg = getEggState();
+  const elapsed = eggElapsedMs();
+  const stopped = egg && Number.isFinite(egg.stoppedElapsedMs);
+  if (!egg) {
+    return `<div class="egg-challenge" id="egg-challenge">
+      <div class="egg-title"><strong>Kok et smilende egg 🥚</strong><span>1 sekund = 1 minutt</span></div>
+      <p class="egg-instruction">Dra egget ned i kjelen. Timeren starter idet egget treffer vannet.</p>
+      <div class="egg-kitchen" id="egg-kitchen">
+        <button type="button" class="egg-drag" id="egg-drag" aria-label="Dra egget til kjelen"><span>🥚</span></button>
+        <div class="egg-arrow" aria-hidden="true">↓</div>
+        <div class="pot-wrap" id="egg-pot" aria-label="Kjele med kokende vann">
+          <div class="pot-steam"><i></i><i></i><i></i></div><div class="pot-rim"></div>
+          <div class="pot-water"><span></span><span></span><span></span></div>
+          <div class="pot-body"><div class="pot-handle"></div></div>
+        </div>
+      </div>
+      <div class="egg-hint">Hold fingeren på egget og dra det ned i kjelen.</div>
+    </div>`;
+  }
+  return `<div class="egg-challenge cooking ${stopped ? "stopped" : ""}" id="egg-challenge">
+    <div class="egg-title"><strong>${stopped ? "Timeren er stoppet" : "Egget koker…"}</strong><span>1 sekund = 1 minutt</span></div>
+    <div class="cooking-scene">
+      <div class="pot-wrap pot-active" aria-hidden="true"><div class="pot-steam"><i></i><i></i><i></i></div><div class="pot-rim"></div><div class="pot-water"><span></span><span></span><span></span><b>🥚</b></div><div class="pot-body"><div class="pot-handle"></div></div></div>
+      <div class="egg-clock"><small>TID</small><strong id="egg-timer">${formatEggTime(elapsed)}</strong><span>sekunder</span></div>
+    </div>
+    <div class="egg-actions">
+      <button type="button" class="secondary" id="egg-stop" ${stopped ? "disabled" : ""}>Stopp</button>
+      <button type="button" class="secondary" id="egg-retry">Prøv på nytt</button>
+      <button type="button" class="egg-confirm" id="egg-confirm">Jeg stopper tiden her</button>
+    </div>
+    <p class="egg-note">Når du velger «Jeg stopper tiden her», sendes passordet automatisk inn. Resultatet vises først når runden avsluttes.</p>
+  </div>`;
 }
 
 function captureInputState() {
@@ -540,6 +622,33 @@ function armResultOverlay(previousStatus, nextState) {
     resultOverlayUntil = 0;
     if (state?.meta?.status === "results") render();
   }, 4050);
+}
+
+function armWinnerOverlay(previousStatus, nextState) {
+  if (hostMode || previousStatus === "game_over" || nextState?.meta?.status !== "game_over") return;
+  const key = `${nextState?.meta?.sessionId || "session"}:game-over`;
+  if (key === winnerOverlayKey) return;
+  winnerOverlayKey = key;
+  winnerOverlayUntil = Date.now() + 5000;
+  if (winnerOverlayTimer) clearTimeout(winnerOverlayTimer);
+  winnerOverlayTimer = setTimeout(() => { winnerOverlayUntil = 0; if (state?.meta?.status === "game_over") render(); }, 5050);
+}
+
+function winnerCelebrationHtml() {
+  if (hostMode || state?.meta?.status !== "game_over" || !winnerOverlayUntil || Date.now() >= winnerOverlayUntil) return "";
+  const winners = state.meta.winners || [];
+  const kings = state.meta.shortKings || [];
+  if (!winners.length && !kings.length) return "";
+  const same = winners.length && kings.length && winners.length === kings.length && winners.every(name => kings.includes(name));
+  const confetti = Array.from({length: 32}, (_, i) => `<i style="--x:${(i*37)%100}%;--d:${(i%7)*.13}s;--drift:${((i*53)%61)-30}px">${i%3===0 ? "♥" : i%3===1 ? "★" : "✦"}</i>`).join("");
+  return `<div class="winner-celebration-overlay" role="status" aria-live="assertive">
+    <div class="winner-confetti" aria-hidden="true">${confetti}</div>
+    <div class="winner-celebration-content">
+      ${same ? `<div class="winner-title">🏆 DOUBLE CROWN ⭐</div><div class="winner-name">${winners.map(esc).join(" & ")}</div><div class="winner-subtitle">VINNER AV PASSORDET TIL SIRIS HJERTE · THE SHORT KING</div>` : `
+        ${winners.length ? `<div class="winner-title">🏆 VINNER</div><div class="winner-name">${winners.map(esc).join(" & ")}</div><div class="winner-subtitle">PASSORDET TIL SIRIS HJERTE</div>` : ""}
+        ${kings.length ? `<div class="winner-divider"></div><div class="winner-title short">⭐ THE SHORT KING</div><div class="winner-name short">${kings.map(esc).join(" & ")}</div>` : ""}`}
+    </div>
+  </div>`;
 }
 
 function shortKingFinalHtml() {
@@ -827,8 +936,9 @@ function playerPanel() {
           <div id="password-full-preview" class="password-full-preview" aria-live="polite"></div>
           ${walterInlineHtml()}
         </div>
-        <button ${time === 0 || roundIntroActive() || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Lever passord"}</button>
+        ${state.meta.round === 12 ? "" : `<button ${time === 0 || roundIntroActive() || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Lever passord"}</button>`}
       </form>
+      ${eggHtml()}
 
       ${lastSubmit ? `<div class="feedback good">✓ Passordet er lagret. Resultatet vises når runden avsluttes.</div>` : ""}
 
@@ -1286,6 +1396,7 @@ function render() {
     ${winnerText ? `<div class="hero-winner">🏆 ${winnerText}</div>` : ""}
     ${shortKingFinalHtml()}
     ${resultOverlayHtml()}
+    ${winnerCelebrationHtml()}
     ${roundStartOverlayHtml()}
 
     <section class="grid">
@@ -1497,6 +1608,43 @@ function bindEvents() {
     }
   });
 
+  const eggDrag = document.querySelector("#egg-drag");
+  if (eggDrag) {
+    let dragging = false, startX = 0, startY = 0;
+    eggDrag.addEventListener("pointerdown", e => { dragging = true; startX = e.clientX; startY = e.clientY; eggDrag.setPointerCapture?.(e.pointerId); eggDrag.classList.add("dragging"); });
+    eggDrag.addEventListener("pointermove", e => { if (!dragging) return; eggDrag.style.transform = `translate(${e.clientX-startX}px, ${e.clientY-startY}px) scale(1.08)`; });
+    eggDrag.addEventListener("pointerup", e => {
+      if (!dragging) return; dragging = false; eggDrag.releasePointerCapture?.(e.pointerId);
+      const pot = document.querySelector("#egg-pot");
+      const rect = pot?.getBoundingClientRect();
+      const hit = rect && e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+      eggDrag.classList.remove("dragging"); eggDrag.style.transform = "";
+      if (hit) startEggTimer();
+    });
+    eggDrag.addEventListener("pointercancel", () => { dragging = false; eggDrag.classList.remove("dragging"); eggDrag.style.transform = ""; });
+  }
+  document.querySelector("#egg-stop")?.addEventListener("click", stopEggTimer);
+  document.querySelector("#egg-retry")?.addEventListener("click", resetEggTimer);
+  document.querySelector("#egg-confirm")?.addEventListener("click", async e => {
+    const button = e.currentTarget;
+    if (!player || button.disabled) return;
+    lastError = "";
+    try {
+      let egg = getEggState();
+      if (!egg) throw new Error("Dra egget ned i kjelen først.");
+      let elapsed = eggElapsedMs();
+      if (!Number.isFinite(elapsed)) throw new Error("Timeren er ikke startet.");
+      if (!Number.isFinite(egg.stoppedElapsedMs)) { egg = { ...egg, stoppedElapsedMs: elapsed }; saveEggState(egg); }
+      const input = document.querySelector('input[name="password"]');
+      const password = String(input?.value || "");
+      if (!password) throw new Error("Skriv inn et passord før du stopper egg-tiden.");
+      button.disabled = true;
+      lastSubmit = await api({ action: "submit", playerId: player.id, playerToken: player.token, password, eggSeconds: Math.round((elapsed/1000)*100)/100 });
+      player = { ...player, lastPassword: password }; localStorage.setItem(storageKey, JSON.stringify(player));
+      await refresh();
+    } catch (err) { lastError = err.message; render(); } finally { if (button.isConnected) button.disabled = false; }
+  });
+
   document.querySelector("#submit-form")?.addEventListener("submit", async e => {
     e.preventDefault();
     lastError = "";
@@ -1504,6 +1652,7 @@ function bindEvents() {
     const password = String(new FormData(e.currentTarget).get("password") || "");
 
     try {
+      if (state?.meta?.round === 12) throw new Error("I runde 12 leverer du ved å koke egget og velge «Jeg stopper tiden her».");
       lastSubmit = await api({
         action: "submit",
         playerId: player.id,
@@ -1596,6 +1745,8 @@ function tick() {
   const s = secondsLeft();
   const a = document.querySelector("#countdown");
   const b = document.querySelector("#header-countdown");
+  const eggTimer = document.querySelector("#egg-timer");
+  if (eggTimer) eggTimer.textContent = formatEggTime(eggElapsedMs());
 
   if (a) a.textContent = `${s}s`;
   if (b) b.textContent = `${s}s left`;
