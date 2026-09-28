@@ -1216,3 +1216,23 @@ body.player-theme-marie::before {
     font-size: .95rem;
   }
 }
+
+/* Participant round-start transition: deliberately viewport-independent so mobile and desktop match. */
+.round-start-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #fff;
+  color: #111;
+  text-align: center;
+}
+.round-start-overlay > div {
+  font-weight: 900;
+  font-size: clamp(2.5rem, 10vw, 6rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}

@@ -37,6 +37,9 @@ let timelineMessage = "";
 let resultOverlayKey = "";
 let resultOverlayUntil = 0;
 let resultOverlayTimer = null;
+let roundIntroKey = "";
+let roundIntroUntil = 0;
+let participantRoundDeadline = 0;
 
 function readJson(v) {
   try { return JSON.parse(v); } catch { return null; }
@@ -246,6 +249,7 @@ async function refresh() {
     const nextState = await api();
     reconcileGameSession(nextState);
     armResultOverlay(previousStatus, nextState);
+    armRoundIntro(previousStatus, previousRound, nextState);
     const changed = JSON.stringify(nextState) !== JSON.stringify(state);
 
     if (
@@ -336,9 +340,42 @@ function selfState() {
   return state?.players?.find(p => p.id === player?.id) || null;
 }
 
+function currentRoundKey(nextState = state) {
+  return `${nextState?.meta?.sessionId || "session"}:${nextState?.meta?.round || 0}`;
+}
+
+function armRoundIntro(previousStatus, previousRound, nextState) {
+  if (hostMode || previousStatus == null || nextState?.meta?.status !== "round_open") return;
+  if (previousStatus === "round_open" && previousRound === nextState.meta.round) return;
+  const key = currentRoundKey(nextState);
+  if (key === roundIntroKey) return;
+  roundIntroKey = key;
+  roundIntroUntil = Date.now() + 2000;
+  participantRoundDeadline = roundIntroUntil + Number(nextState?.meta?.roundSeconds || 60) * 1000;
+  setTimeout(() => {
+    if (currentRoundKey() === key && state?.meta?.status === "round_open") render();
+  }, 2050);
+}
+
+function roundIntroActive() {
+  return !hostMode && state?.meta?.status === "round_open" && currentRoundKey() === roundIntroKey && Date.now() < roundIntroUntil;
+}
+
+function roundStartOverlayHtml() {
+  if (!roundIntroActive()) return "";
+  return `<div class="round-start-overlay" role="status" aria-live="assertive">
+    <div>Runde ${state.meta.round}/${state.totalRules}</div>
+  </div>`;
+}
+
 function secondsLeft() {
   if (!state?.meta?.deadline) return null;
-  return Math.max(0, Math.ceil((state.meta.deadline - Date.now()) / 1000));
+  const full = Number(state?.meta?.roundSeconds || 60);
+  if (roundIntroActive()) return full;
+  if (!hostMode && currentRoundKey() === roundIntroKey && participantRoundDeadline) {
+    return Math.max(0, Math.ceil((participantRoundDeadline - Date.now()) / 1000));
+  }
+  return Math.min(full, Math.max(0, Math.ceil((state.meta.deadline - Date.now()) / 1000)));
 }
 
 const timelineCards = [
@@ -493,13 +530,13 @@ function armResultOverlay(previousStatus, nextState) {
   if (key === resultOverlayKey) return;
 
   resultOverlayKey = key;
-  resultOverlayUntil = Date.now() + 6000;
+  resultOverlayUntil = Date.now() + 4000;
 
   if (resultOverlayTimer) clearTimeout(resultOverlayTimer);
   resultOverlayTimer = setTimeout(() => {
     resultOverlayUntil = 0;
     if (state?.meta?.status === "results") render();
-  }, 6050);
+  }, 4050);
 }
 
 function shortKingFinalHtml() {
@@ -787,7 +824,7 @@ function playerPanel() {
           <div id="password-full-preview" class="password-full-preview" aria-live="polite"></div>
           ${walterInlineHtml()}
         </div>
-        <button ${time === 0 || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Lever passord"}</button>
+        <button ${time === 0 || roundIntroActive() || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Lever passord"}</button>
       </form>
 
       ${lastSubmit ? `<div class="feedback good">✓ Passordet er lagret. Resultatet vises når runden avsluttes.</div>` : ""}
@@ -869,7 +906,6 @@ function roundResultsHtml() {
       <span>${result.remaining} videre</span>
     </div>
 
-    <p class="muted tiny">Spillere som gikk videre vises før eliminerte, og innen hver gruppe rangeres kortere passord først. Trykker du «Kopier», blir det valgte passordet automatisk utgangspunktet ditt i neste runde.</p>
     ${result.starRecipients?.length ? `<div class="star-award"><span>⭐</span><div><strong>Kortest denne runden</strong><small>${result.starRecipients.map(p => `${esc(p.name)} · ${p.passwordLength} tegn`).join(" & ")}</small></div></div>` : ""}
     ${result.rpsSummary ? `<div class="rps-summary">
       <strong>Stein · saks · papir</strong>
@@ -929,7 +965,6 @@ function overallRankingHtml() {
       <h2>Samlet rangering</h2>
       <span>${rows.length} spillere</span>
     </div>
-    <p class="muted tiny">Spillere som fortsatt er med rangeres øverst. Blant eliminerte rangeres den som kom lengst høyest. Innen samme elimineringsrunde rangeres kortere passord foran lengre. Ved lik passordlengde rangeres flest stjerner høyere.</p>
     <div class="players">
       ${rows.map(p => {
         const status = p.alive
@@ -1248,6 +1283,7 @@ function render() {
     ${winnerText ? `<div class="hero-winner">🏆 ${winnerText}</div>` : ""}
     ${shortKingFinalHtml()}
     ${resultOverlayHtml()}
+    ${roundStartOverlayHtml()}
 
     <section class="grid">
       <div>
@@ -1544,6 +1580,12 @@ function bindEvents() {
 }
 
 function tick() {
+  const startOverlay = document.querySelector(".round-start-overlay");
+  if (startOverlay && !roundIntroActive()) {
+    startOverlay.remove();
+    render();
+    return;
+  }
   if (!state?.meta?.deadline) return;
 
   const s = secondsLeft();
