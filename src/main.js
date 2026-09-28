@@ -431,14 +431,14 @@ function timelineRuleHtml() {
 
   const byId = new Map(timelineCards.map(card => [card.id, card]));
   return `<div class="timeline-game">
-    <div class="timeline-game-head"><strong>Sett hendelsene i riktig rekkefølge</strong><span>Dra eller bruk pilene</span></div>
+    <div class="timeline-game-head"><strong>Sett hendelsene i riktig rekkefølge</strong></div>
     <div class="timeline-list" id="timeline-list">
       ${timelineOrder().map((id, index) => {
         const card = byId.get(id);
         return `<article class="timeline-card" data-timeline-id="${esc(card.id)}" draggable="true">
           <div class="timeline-position">${index + 1}</div>
           <img src="${card.src}" alt="${esc(card.caption)}" draggable="false">
-          <div class="timeline-caption"><strong>${esc(card.caption)}</strong><small>Dra kortet eller bruk pilene</small></div>
+          <div class="timeline-caption"><strong>${esc(card.caption)}</strong></div>
           <div class="timeline-move-controls" aria-label="Flytt ${esc(card.caption)}">
             <button class="timeline-move timeline-move-up" type="button" aria-label="Flytt ${esc(card.caption)} opp" ${index === 0 ? "disabled" : ""}>↑</button>
             <button class="timeline-move timeline-move-down" type="button" aria-label="Flytt ${esc(card.caption)} ned" ${index === timelineCards.length - 1 ? "disabled" : ""}>↓</button>
