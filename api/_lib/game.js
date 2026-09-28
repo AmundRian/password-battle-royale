@@ -1657,6 +1657,43 @@ const SONG_TITLES = [...BEATLES_SONGS, ...QUEEN_SONGS, ...KILLERS_SONGS];
 // normalizeLoose() removes spaces, hyphens and punctuation before matching,
 // so variants such as "duck-billed platypus" and "duck billed platypus" are equivalent.
 
+const PICTURE_ANIMALS = [
+  // Nebbdyr / platypus
+  "nebbdyr",
+  "nebdyr",
+  "platypus",
+  "platipus",
+  "duck billed platypus",
+  "duck-billed platypus",
+  "duckbill platypus",
+
+  // Maurpiggsvin / echidna. Also accept the common variant maurpinnsvin
+  // and a few forgiving spellings for the game.
+  "maurpiggsvin",
+  "maurpinnsvin",
+  "maurpinsvin",
+  "maur piggsvin",
+  "maur pinnsvin",
+  "echidna",
+  "ekidna",
+  "spiny anteater",
+
+  // Leopard
+  "leopard",
+  "leopart",
+
+  // Sommerfugl / butterfly. Sommerfuggel is a common informal misspelling.
+  "sommerfugl",
+  "sommerfuggel",
+  "sommerfugel",
+  "butterfly",
+
+  // Jerv / wolverine
+  "jerv",
+  "wolverine",
+  "wolverin"
+];
+
 const TWO_COLOR_FLAG_COUNTRIES = [
   "Albania", "Austria", "Østerrike", "Oesterrike", "Bahrain", "Bangladesh",
   "Canada", "Kanada", "China", "Kina", "Denmark", "Danmark", "Finland",
