@@ -734,7 +734,7 @@ body.player-theme-marie::before {
   position:relative;
   z-index:1;
   display:grid;
-  grid-template-columns:28px 76px minmax(0,1fr) 38px;
+  grid-template-columns:28px 76px minmax(0,1fr) 46px;
   gap:9px;
   align-items:center;
   min-height:70px;
@@ -770,20 +770,29 @@ body.player-theme-marie::before {
 .timeline-caption { min-width:0; }
 .timeline-caption strong { display:block; font-size:.76rem; line-height:1.2; color:#f7f8fd; }
 .timeline-caption small { display:block; margin-top:3px; color:#c1cae2; font-size:.63rem; }
-.timeline-drag-handle {
-  width:36px;
-  min-height:48px;
+.timeline-move-controls {
+  display:grid;
+  gap:5px;
+  align-self:stretch;
+}
+.timeline-move {
+  width:44px;
+  min-height:32px;
   padding:0;
   border-radius:9px;
-  border:1px solid rgba(255,255,255,.12);
-  background:rgba(255,255,255,.055);
-  color:#d7dcec;
+  border:1px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.075);
+  color:#f4f6ff;
   font-size:1.05rem;
-  cursor:grab;
-  touch-action:none;
+  font-weight:950;
+  line-height:1;
+  cursor:pointer;
+  touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
 }
-.timeline-drag-handle:active { cursor:grabbing; }
+.timeline-move:active:not(:disabled) { transform:scale(.94); background:rgba(255,255,255,.14); }
+.timeline-move:disabled { opacity:.24; cursor:default; }
+.timeline-card.timeline-moving { border-color:#d9c36f; transform:scale(.992); }
 .timeline-check {
   width:100%;
   margin-top:10px;
@@ -822,10 +831,12 @@ body.player-theme-marie::before {
   .life-info { padding:10px 11px; gap:9px; }
   .life-hearts { font-size:1.15rem; }
   .timeline-game { padding:10px; }
-  .timeline-card { grid-template-columns:27px 66px minmax(0,1fr) 36px; gap:7px; min-height:65px; }
-  .timeline-card img { width:66px; height:50px; }
+  .timeline-card { grid-template-columns:27px 62px minmax(0,1fr) 48px; gap:7px; min-height:72px; padding-top:8px; padding-bottom:8px; }
+  .timeline-card img { width:62px; height:52px; }
   .timeline-caption strong { font-size:.72rem; }
   .timeline-caption small { font-size:.59rem; }
+  .timeline-move { width:46px; min-height:34px; font-size:1.1rem; }
+  .timeline-move-controls { gap:4px; }
   .timeline-list::before { left:16px; }
   .timeline-unlocked { padding:12px; gap:10px; }
   .timeline-unlocked strong { font-size:1.25rem; }

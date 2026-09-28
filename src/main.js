@@ -431,15 +431,18 @@ function timelineRuleHtml() {
 
   const byId = new Map(timelineCards.map(card => [card.id, card]));
   return `<div class="timeline-game">
-    <div class="timeline-game-head"><strong>Sett hendelsene i riktig rekkefølge</strong><span>Dra kortene</span></div>
+    <div class="timeline-game-head"><strong>Sett hendelsene i riktig rekkefølge</strong><span>Dra eller bruk pilene</span></div>
     <div class="timeline-list" id="timeline-list">
       ${timelineOrder().map((id, index) => {
         const card = byId.get(id);
         return `<article class="timeline-card" data-timeline-id="${esc(card.id)}" draggable="true">
           <div class="timeline-position">${index + 1}</div>
           <img src="${card.src}" alt="${esc(card.caption)}" draggable="false">
-          <div class="timeline-caption"><strong>${esc(card.caption)}</strong><small>Hold og dra for å flytte</small></div>
-          <button class="timeline-drag-handle" type="button" aria-label="Flytt ${esc(card.caption)}">↕</button>
+          <div class="timeline-caption"><strong>${esc(card.caption)}</strong><small>Dra kortet eller bruk pilene</small></div>
+          <div class="timeline-move-controls" aria-label="Flytt ${esc(card.caption)}">
+            <button class="timeline-move timeline-move-up" type="button" aria-label="Flytt ${esc(card.caption)} opp" ${index === 0 ? "disabled" : ""}>↑</button>
+            <button class="timeline-move timeline-move-down" type="button" aria-label="Flytt ${esc(card.caption)} ned" ${index === timelineCards.length - 1 ? "disabled" : ""}>↓</button>
+          </div>
         </article>`;
       }).join("")}
     </div>
@@ -1431,37 +1434,39 @@ function bindEvents() {
       });
     });
 
-    timelineList.querySelectorAll(".timeline-drag-handle").forEach(handle => {
-      handle.addEventListener("pointerdown", e => {
-        const card = handle.closest(".timeline-card");
+    const refreshTimelineControls = () => {
+      const cards = [...timelineList.querySelectorAll(".timeline-card")];
+      cards.forEach((card, index) => {
+        const up = card.querySelector(".timeline-move-up");
+        const down = card.querySelector(".timeline-move-down");
+        if (up) up.disabled = index === 0;
+        if (down) down.disabled = index === cards.length - 1;
+      });
+    };
+
+    timelineList.querySelectorAll(".timeline-move").forEach(button => {
+      button.addEventListener("click", e => {
+        const card = e.currentTarget.closest(".timeline-card");
         if (!card) return;
-        draggedId = card.dataset.timelineId;
-        pointerId = e.pointerId;
-        handle.setPointerCapture?.(e.pointerId);
-        card.classList.add("dragging");
-        e.preventDefault();
-      });
-      handle.addEventListener("pointermove", e => {
-        if (pointerId !== e.pointerId || !draggedId) return;
-        const source = timelineList.querySelector(`[data-timeline-id="${draggedId}"]`);
-        const target = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".timeline-card");
-        if (!source || !target || source === target || target.parentElement !== timelineList) return;
-        const rect = target.getBoundingClientRect();
-        timelineList.insertBefore(source, e.clientY > rect.top + rect.height / 2 ? target.nextSibling : target);
+        const moveUp = e.currentTarget.classList.contains("timeline-move-up");
+        const sibling = moveUp ? card.previousElementSibling : card.nextElementSibling;
+        if (!sibling) return;
+
+        card.classList.add("timeline-moving");
+        if (moveUp) timelineList.insertBefore(card, sibling);
+        else timelineList.insertBefore(sibling, card);
+
         refreshTimelineNumbers();
-        e.preventDefault();
+        refreshTimelineControls();
+        e.currentTarget.focus({ preventScroll: true });
+        setTimeout(() => card.classList.remove("timeline-moving"), 180);
       });
-      const endPointer = e => {
-        if (pointerId !== e.pointerId) return;
-        handle.releasePointerCapture?.(e.pointerId);
-        timelineList.querySelector(`[data-timeline-id="${draggedId}"]`)?.classList.remove("dragging");
-        draggedId = null;
-        pointerId = null;
-        refreshTimelineNumbers();
-      };
-      handle.addEventListener("pointerup", endPointer);
-      handle.addEventListener("pointercancel", endPointer);
     });
+
+    // Keep desktop drag-and-drop, but the arrow buttons are the primary mobile control.
+    timelineList.addEventListener("dragend", refreshTimelineControls);
+    refreshTimelineControls();
+
   }
 
   document.querySelector("#check-timeline")?.addEventListener("click", async e => {
