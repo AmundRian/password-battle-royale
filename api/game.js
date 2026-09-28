@@ -401,6 +401,7 @@ export default async function handler(req, res) {
 
     if (action === "submit") {
       if (meta.status !== "round_open") fail("Submissions are not open right now.", 409);
+      if (meta.roundStartsAt && Date.now() < meta.roundStartsAt) fail("Runden starter om et øyeblikk.", 409);
       if (meta.deadline && Date.now() > meta.deadline) fail("Time is up for this round.", 409);
       const player = await getPlayer(body.playerId, redis);
       if (!player || player.token !== body.playerToken) fail("Player session not found. Rejoin after the next reset.", 401);
@@ -453,12 +454,14 @@ export default async function handler(req, res) {
         await savePlayer(p, redis);
       }
 
+      const roundStartsAt = Date.now() + 2000;
       meta = await setMeta({
         ...meta,
         status: "round_open",
         round: 1,
         roundSeconds: seconds,
-        deadline: Date.now() + seconds * 1000,
+        roundStartsAt,
+        deadline: Date.now() + (seconds + 4) * 1000,
         winner: null,
         winners: [],
         winningPasswordLength: null,
@@ -701,12 +704,14 @@ export default async function handler(req, res) {
           await savePlayer(p, redis);
         }
 
+        const roundStartsAt = Date.now() + 2000;
         meta = await setMeta({
           ...meta,
           status: "round_open",
           round: meta.round + 1,
           roundSeconds: seconds,
-          deadline: Date.now() + seconds * 1000
+          roundStartsAt,
+          deadline: Date.now() + (seconds + 4) * 1000
         }, redis);
       }
 
