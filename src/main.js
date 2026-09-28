@@ -357,9 +357,9 @@ function eggHtml() {
     <div class="egg-actions">
       <button type="button" class="secondary" id="egg-stop" ${stopped ? "disabled" : ""}>Stopp</button>
       <button type="button" class="secondary" id="egg-retry">Prøv på nytt</button>
-      <button type="button" class="egg-confirm" id="egg-confirm">Jeg stopper tiden her</button>
+      <button type="button" class="egg-confirm" id="egg-confirm">Jeg stopper tiden her – lever passord</button>
     </div>
-    <p class="egg-note">Når du velger «Jeg stopper tiden her», sendes passordet automatisk inn. Resultatet vises først når runden avsluttes.</p>
+    <p class="egg-note">Når du velger «Jeg stopper tiden her – lever passord», sendes passordet automatisk inn. Resultatet vises først når runden avsluttes.</p>
   </div>`;
 }
 
@@ -1735,7 +1735,7 @@ function bindEvents() {
     const password = String(new FormData(e.currentTarget).get("password") || "");
 
     try {
-      if (state?.meta?.round === 12) throw new Error("I runde 12 leverer du ved å koke egget og velge «Jeg stopper tiden her».");
+      if (state?.meta?.round === 12) throw new Error("I runde 12 leverer du ved å koke egget og velge «Jeg stopper tiden her – lever passord».");
       lastSubmit = await api({
         action: "submit",
         playerId: player.id,
