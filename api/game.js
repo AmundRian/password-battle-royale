@@ -146,14 +146,14 @@ const FAILURE_LABELS = new Map([
   ["Passordet må inneholde nøyaktig fem av bokstaven «e».", "Regel 3.1"],
   ["Passordet må inneholde navnet på en europeisk hovedstad.", "Regel 3.2"],
   ["Passordet må inneholde minst ett kodeord fra NATOs fonetiske alfabet.", "Regel 4"],
-  ["Passordet må inneholde en hovedingrediens i pannekakerøre.", "Regel 5.1"],
-  ["Passordet må inneholde minst én av de syv siste bokstavene i det norske alfabetet.", "Regel 5.2"],
+  ["Passordet må inneholde navnet på en karakter fra Marvel-universet.", "Regel 5"],
   ["Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.", "Regel 6"],
   ["Passordet må inneholde det hemmelige ordet som låses opp i tidslinjen.", "Regel 7"],
   ["Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.", "Regel 8"],
   ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 10"],
   ["Passordet må inneholde navnet på en Pokémon fra de første 151 i Pokédex.", "Regel 11"],
-  ["Passordet må inneholde initialene til en deltaker fra «Mesternes mester», skrevet med store bokstaver.", "Regel 12"],
+  ["Passordet må inneholde minst én av de syv siste bokstavene i det norske alfabetet.", "Regel 12"],
+  ["Egget ble ikke stoppet innenfor riktig tidsvindu for et smilende egg.", "Regel 12"],
   ["Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.", "Regel 13"],
   ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 14"],
   ["Passordet må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir».", "Regel 15"],
@@ -352,7 +352,8 @@ export default async function handler(req, res) {
         stars: 0,
         starAwardedRound: null,
         lostLifeRound: null,
-        timelineSolved: false
+        timelineSolved: false,
+        eggSeconds: null
       };
       await savePlayer(player, redis);
       const players = await getPlayers(redis);
@@ -411,6 +412,14 @@ export default async function handler(req, res) {
 
       // Deliberately do NOT tell the player whether the password passes yet.
       // Validation happens when the host closes the round.
+      if (meta.round === 12) {
+        const eggSeconds = Number(body.eggSeconds);
+        if (!Number.isFinite(eggSeconds) || eggSeconds < 0 || eggSeconds > 60) {
+          fail("Du må koke egget og stoppe timeren før du kan levere i runde 12.", 409);
+        }
+        player.eggSeconds = Math.round(eggSeconds * 100) / 100;
+      }
+
       player.submission = password;
       player.valid = null;
       player.failures = [];
@@ -451,6 +460,7 @@ export default async function handler(req, res) {
         p.starAwardedRound = null;
         p.lostLifeRound = null;
         p.timelineSolved = false;
+        p.eggSeconds = null;
         await savePlayer(p, redis);
       }
 
@@ -510,6 +520,16 @@ export default async function handler(req, res) {
             rule: "Regel 7",
             text: "Du må løse tidslinjen før passordet kan godkjennes i runde 7."
           });
+        }
+
+        if (meta.round === 12) {
+          const eggSeconds = Number(p.eggSeconds);
+          if (!Number.isFinite(eggSeconds) || eggSeconds < 6 || eggSeconds > 8) {
+            failureDetails.push({
+              rule: "Regel 12",
+              text: "Egget ble ikke stoppet innenfor riktig tidsvindu for et smilende egg."
+            });
+          }
         }
 
         if (meta.round >= 9) {
@@ -689,6 +709,7 @@ export default async function handler(req, res) {
       } else {
         for (const p of survivors) {
           p.submission = null;
+          p.eggSeconds = null;
           p.valid = null;
           p.failures = [];
           p.failureDetails = [];
