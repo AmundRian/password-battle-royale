@@ -4,6 +4,8 @@ import {
   savePlayer, setMeta, validatePassword, TIMELINE_ORDER, getRpsChoice, rpsChoiceLabel
 } from "./_lib/game.js";
 
+const STARTING_LIVES = 3;
+
 function send(res, status, body) {
   res.status(status).json(body);
 }
@@ -347,7 +349,7 @@ export default async function handler(req, res) {
         walterFeedRound: null,
         walterFeedCount: 0,
         walterFirstFedAt: null,
-        lives: 2,
+        lives: STARTING_LIVES,
         teamSize,
         stars: 0,
         starAwardedRound: null,
@@ -455,7 +457,7 @@ export default async function handler(req, res) {
         p.walterFeedRound = null;
         p.walterFeedCount = 0;
         p.walterFirstFedAt = null;
-        p.lives = 2;
+        p.lives = STARTING_LIVES;
         p.stars = 0;
         p.starAwardedRound = null;
         p.lostLifeRound = null;
@@ -618,7 +620,7 @@ export default async function handler(req, res) {
         const failureDetails = failureDetailsById.get(p.id) || [];
         const failed = failureDetails.length > 0;
         const isFinalRound = meta.round >= RULES.length;
-        const currentLives = Math.max(1, Number(p.lives ?? 2));
+        const currentLives = Math.max(1, Number(p.lives ?? STARTING_LIVES));
         const canUseExtraLife = failed && !isFinalRound && currentLives > 1;
 
         if (canUseExtraLife) {
