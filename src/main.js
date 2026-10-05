@@ -560,6 +560,14 @@ function starsHtml(stars) {
   return `<span class="star-badge" title="${count} stjerner">⭐×${count}</span>`;
 }
 
+const STARTING_LIVES = 3;
+
+function heartsForLives(lives, maxLives = STARTING_LIVES) {
+  const safeMax = Math.max(1, Number(maxLives || STARTING_LIVES));
+  const safeLives = Math.max(0, Math.min(safeMax, Number(lives || 0)));
+  return "❤️".repeat(safeLives) + "🖤".repeat(Math.max(0, safeMax - safeLives));
+}
+
 function lifeInfoHtml(self) {
   if (!self?.alive || state?.meta?.status !== "round_open") return "";
 
@@ -571,8 +579,8 @@ function lifeInfoHtml(self) {
     </div>`;
   }
 
-  const lives = Math.max(1, Number(self.lives ?? 2));
-  const hearts = lives >= 2 ? "❤️❤️" : "❤️🖤";
+  const lives = Math.max(1, Number(self.lives ?? STARTING_LIVES));
+  const hearts = heartsForLives(lives);
 
   return `<div class="life-info ${lives >= 2 ? "training" : "sudden"} compact-life-info">
     <div class="life-hearts">${hearts}</div>
@@ -587,8 +595,8 @@ function resultOverlayHtml() {
   const result = currentRoundSelfResult();
   if (!result) return "";
 
-  const lives = Math.max(0, Number(selfState()?.lives ?? (result.survived ? 1 : 0)));
-  const hearts = lives >= 2 ? "❤️❤️" : (lives === 1 ? "❤️🖤" : "🖤🖤");
+  const lives = Math.max(0, Number(selfState()?.lives ?? (result.survived ? STARTING_LIVES : 0)));
+  const hearts = heartsForLives(lives);
   const failureText = (result.failures || [])
     .map(f => `<div class="result-overlay-reason">❌ <strong>${esc(f.rule)}:</strong> ${esc(f.text)}</div>`)
     .join("");
@@ -622,7 +630,7 @@ function resultOverlayHtml() {
     <h2>DU ER ELIMINERT</h2>
     <p class="round-result-sub">Siste liv er brukt.</p>
     ${failureText || `<div class="result-overlay-reason">${esc(selfState()?.reason || "Passordet oppfylte ikke rundens krav.")}</div>`}
-    <div class="round-result-hearts">🖤🖤</div>
+    <div class="round-result-hearts">${heartsForLives(0)}</div>
   </div>`;
 }
 
