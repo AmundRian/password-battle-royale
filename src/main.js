@@ -115,9 +115,20 @@ function normalizedNickname(value) {
     .replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
+function pokemonHintNameParts(value) {
+  const cleaned = String(value ?? "")
+    .trim()
+    .replace(/\s*\([2-6]\)\s*$/u, "");
+
+  return cleaned
+    .split(/\s+(?:og|and)\s+|\s*[&/+;,]\s*/iu)
+    .map(part => normalizedNickname(part.replace(/\s*\([2-6]\)\s*$/u, "")))
+    .filter(Boolean);
+}
+
 function hasPokemonHint() {
   const name = selfState()?.name || player?.name || "";
-  return pokemonHintNames.has(normalizedNickname(name));
+  return pokemonHintNameParts(name).some(part => pokemonHintNames.has(part));
 }
 
 function currentNickname() {
