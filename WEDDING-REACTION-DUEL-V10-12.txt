@@ -1,0 +1,11 @@
+V10.12: Reaksjonsduell som ny runde 17.
+
+- Runde 17 matcher gjenværende deltakere tilfeldig to og to.
+- Deltakerne tar med seg gjenværende liv fra runde 16.
+- Begge må trykke «Jeg er klar» før hvert første forsøk / «Klar for neste» mellom forsøk.
+- Serveren velger ett felles, tilfeldig grønt signal 2–7 sekunder fram i tid.
+- Reaksjonstiden måles lokalt fra faktisk grønt signal til trykk, slik at post-trykk nettverksforsinkelse ikke teller.
+- Taperen av hvert forsøk mister ett liv. Ved 0 liv elimineres spilleren av navngitt motstander.
+- Oddetall gir én tilfeldig frirunde til finalen.
+- Runde 18 er den tidligere finalen «siste revisjon».
+- Finalens sudden-death-logikk beholdes: finalistene går til 1 liv når runde 18 starter.

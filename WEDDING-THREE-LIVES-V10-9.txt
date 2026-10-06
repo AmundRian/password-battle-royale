@@ -1,0 +1,8 @@
+Bryllupsleken bruker nå 3 liv per deltaker i stedet for 2.
+
+Endringer:
+- Nye deltakere starter med 3 liv.
+- Når hosten starter en ny lek, resettes alle til 3 liv.
+- UI viser nå 3 hjerter (❤️❤️❤️ / ❤️❤️🖤 / ❤️🖤🖤 / 🖤🖤🖤).
+- Resultat-overlay og liv-visning er oppdatert tilsvarende.
+- Finalens øvrige logikk er uendret.

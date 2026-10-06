@@ -1,0 +1,1 @@
+V10.10: Kun cache-busting for frontend er endret. index.html peker nå på main.js med et nytt versjonsparameter slik at nettleseren henter 3-livs-visningen med tre hjerter. Ingen spillregler eller annen logikk er endret.

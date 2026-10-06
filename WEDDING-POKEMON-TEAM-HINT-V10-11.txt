@@ -1,0 +1,11 @@
+Pokémon-jukselappen fungerer nå også for lag.
+
+Jukselappen vises når minst ett navn i deltakernavnet står på 50+-listen.
+Eksempler som nå fungerer:
+- Vivi (2)
+- Vivi og Eskil
+- Eskil og Jens
+- Jens og Eskil
+- Hilde-Kari og Jens
+
+Ingen spillregler eller annen funksjonalitet er endret.

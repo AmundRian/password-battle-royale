@@ -234,6 +234,42 @@ function statusText(status) {
   })[status] || status;
 }
 
+let serverClockOffsetMs = 0;
+let bestClockRttMs = Infinity;
+let reactionIntroKey = "";
+let reactionIntroUntil = 0;
+let reactionSignalKey = "";
+let reactionSignalShownPerf = null;
+
+function syncServerClock(serverNow, requestStartedAt, requestEndedAt) {
+  const server = Number(serverNow);
+  if (!Number.isFinite(server)) return;
+  const rtt = Math.max(0, Number(requestEndedAt) - Number(requestStartedAt));
+  const midpoint = (Number(requestStartedAt) + Number(requestEndedAt)) / 2;
+  const offset = server - midpoint;
+  if (!Number.isFinite(bestClockRttMs) || rtt <= bestClockRttMs) {
+    bestClockRttMs = rtt;
+    serverClockOffsetMs = offset;
+  } else if (rtt <= bestClockRttMs + 40) {
+    serverClockOffsetMs = serverClockOffsetMs * 0.8 + offset * 0.2;
+  }
+}
+
+function serverNowMs() { return Date.now() + serverClockOffsetMs; }
+
+function stripAndSyncServerTime(payload, startedAt, endedAt) {
+  if (!payload || typeof payload !== "object") return payload;
+  if (Number.isFinite(Number(payload.serverNow))) {
+    syncServerClock(payload.serverNow, startedAt, endedAt);
+    delete payload.serverNow;
+  }
+  if (payload.state && typeof payload.state === "object" && Number.isFinite(Number(payload.state.serverNow))) {
+    syncServerClock(payload.state.serverNow, startedAt, endedAt);
+    delete payload.state.serverNow;
+  }
+  return payload;
+}
+
 async function api(body = null) {
   const options = body ? {
     method: "POST",
@@ -251,8 +287,11 @@ async function api(body = null) {
   };
 
   const url = body ? "/api/game" : `/api/game?_=${Date.now()}`;
+  const startedAt = Date.now();
   const response = await fetch(url, options);
   const data = await response.json().catch(() => ({}));
+  const endedAt = Date.now();
+  stripAndSyncServerTime(data, startedAt, endedAt);
   if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
   return data;
 }
@@ -267,6 +306,7 @@ async function refresh() {
     armResultOverlay(previousStatus, nextState);
     armWinnerOverlay(previousStatus, nextState);
     armRoundIntro(previousStatus, previousRound, nextState);
+    armReactionIntro(nextState);
     const changed = JSON.stringify(nextState) !== JSON.stringify(state);
 
     if (
@@ -597,6 +637,190 @@ function lifeInfoHtml(self) {
     <div class="life-hearts">${hearts}</div>
     <div><strong>${lives} liv igjen</strong></div>
   </div>`;
+}
+
+
+function isReactionRound(nextState = state) {
+  const latest = nextState?.rules?.[nextState.rules.length - 1];
+  return Boolean(nextState?.meta?.reaction) && latest?.id === "reaction" && ["round_open", "results"].includes(nextState?.meta?.status);
+}
+
+function reactionMatchFor(playerId, nextState = state) {
+  return (nextState?.meta?.reaction?.matches || []).find(m => m.leftId === playerId || m.rightId === playerId) || null;
+}
+
+function reactionByeFor(playerId, nextState = state) {
+  return (nextState?.meta?.reaction?.byes || []).find(b => b.id === playerId) || null;
+}
+
+function reactionOpponent(match, playerId) {
+  if (!match) return null;
+  if (match.leftId === playerId) return { id: match.rightId, name: match.rightName, emoji: match.rightEmoji };
+  if (match.rightId === playerId) return { id: match.leftId, name: match.leftName, emoji: match.leftEmoji };
+  return null;
+}
+
+function reactionSide(match, playerId) {
+  if (!match) return null;
+  if (match.leftId === playerId) return "left";
+  if (match.rightId === playerId) return "right";
+  return null;
+}
+
+function reactionHearts(lives) {
+  return heartsForLives(Math.max(0, Math.min(STARTING_LIVES, Number(lives || 0))));
+}
+
+function armReactionIntro(nextState = state) {
+  if (hostMode || !player?.id || !isReactionRound(nextState) || nextState?.meta?.status !== "round_open") return;
+  const match = reactionMatchFor(player.id, nextState);
+  if (!match) return;
+  const key = `${nextState?.meta?.sessionId || "session"}:${match.id}`;
+  if (key === reactionIntroKey) return;
+  reactionIntroKey = key;
+  reactionIntroUntil = Date.now() + 3000;
+  setTimeout(() => {
+    if (reactionIntroKey === key && Date.now() >= reactionIntroUntil) render();
+  }, 3050);
+}
+
+function reactionIntroHtml() {
+  if (hostMode || Date.now() >= reactionIntroUntil || !player?.id) return "";
+  const match = reactionMatchFor(player.id);
+  const opponent = reactionOpponent(match, player.id);
+  if (!match || !opponent) return "";
+  return `<div class="reaction-opponent-overlay" role="status" aria-live="assertive">
+    <div class="reaction-opponent-label">DIN MOTSTANDER DENNE RUNDEN ER</div>
+    <div class="reaction-opponent-name">${esc(opponent.name)} <span>${esc(opponent.emoji || "⚡")}</span></div>
+  </div>`;
+}
+
+function formatReactionMs(value, early = false) {
+  if (early) return "FOR TIDLIG";
+  const n = Number(value);
+  return Number.isFinite(n) ? `${Math.round(n)} ms` : "—";
+}
+
+function reactionViewHtml(self) {
+  const bye = reactionByeFor(self.id);
+  if (bye) {
+    return `<section class="card winner reaction-bye-card">
+      <h2>🎟️ Frirunde</h2>
+      <p>Det var oddetall spillere, og du ble tilfeldig trukket til frirunde. Du er videre til finalerunden.</p>
+      <div class="reaction-final-hearts">${reactionHearts(bye.lives)}</div>
+    </section>`;
+  }
+
+  const match = reactionMatchFor(self.id);
+  if (!match) return `<section class="card"><h2>⚡ Reaksjonsduell</h2><p>Venter på motstander…</p></section>`;
+  const side = reactionSide(match, self.id);
+  const otherSide = side === "left" ? "right" : "left";
+  const opponent = reactionOpponent(match, self.id);
+  const myLives = Number(match[`${side}Lives`] || 0);
+  const oppLives = Number(match[`${otherSide}Lives`] || 0);
+  const myReady = Boolean(match[`${side}Ready`]);
+  const oppReady = Boolean(match[`${otherSide}Ready`]);
+  const myReaction = match[`${side}ReactionMs`];
+  const oppReaction = match[`${otherSide}ReactionMs`];
+  const myEarly = Boolean(match[`${side}Early`]);
+  const oppEarly = Boolean(match[`${otherSide}Early`]);
+
+  if (match.finished) {
+    if (match.winnerId === self.id) {
+      return `<section class="card winner final-result-card reaction-finished-card">
+        <h2>🏆 DU VANT DUELLEN</h2>
+        <p>Du eliminerte <strong>${esc(opponent?.name || "motstanderen")}</strong> og er videre til finalerunden.</p>
+        <div class="reaction-final-hearts">${reactionHearts(myLives)}</div>
+      </section>`;
+    }
+    return `<section class="card danger final-result-card reaction-finished-card">
+      <h2>💔 DU ER ELIMINERT</h2>
+      <p>Du er eliminert fra leken av <strong>${esc(opponent?.name || "motstanderen")} ${esc(opponent?.emoji || "")}</strong>.</p>
+    </section>`;
+  }
+
+  if (match.phase === "ready") {
+    return `<section class="card accent reaction-card">
+      <div class="reaction-versus">
+        <div><small>Deg</small><strong>${esc(self.name)}</strong><span>${reactionHearts(myLives)}</span></div>
+        <b>VS</b>
+        <div><small>Motstander</small><strong>${esc(opponent?.name || "—")} ${esc(opponent?.emoji || "")}</strong><span>${reactionHearts(oppLives)}</span></div>
+      </div>
+      <div class="reaction-rules-short">
+        <strong>Når skjermen blir grønn: trykk så raskt du kan.</strong>
+        <span>Ikke trykk før. Taperen av hvert forsøk mister ett liv.</span>
+      </div>
+      <button id="reaction-ready" type="button" ${myReady ? "disabled" : ""}>${myReady ? "Du er klar ✓" : (Number(match.attempt || 1) > 1 ? "Klar for neste" : "Jeg er klar")}</button>
+      <p class="reaction-ready-status">${myReady ? (oppReady ? "Begge er klare…" : `Venter på ${esc(opponent?.name || "motstanderen")}…`) : (oppReady ? `${esc(opponent?.name || "Motstanderen")} er klar.` : "Begge må trykke klar før forsøket starter.")}</p>
+    </section>`;
+  }
+
+  if (match.phase === "armed") {
+    const green = Number(match.signalAt || 0) > 0 && serverNowMs() >= Number(match.signalAt);
+    const alreadyTapped = match[`${side}TapAt`] != null;
+    return `<section class="card accent reaction-card reaction-live-card">
+      <div class="reaction-versus compact">
+        <div><strong>${esc(self.name)}</strong><span>${reactionHearts(myLives)}</span></div>
+        <b>VS</b>
+        <div><strong>${esc(opponent?.name || "—")}</strong><span>${reactionHearts(oppLives)}</span></div>
+      </div>
+      <button id="reaction-pad" class="reaction-pad ${alreadyTapped ? "registered" : (green ? "go" : "wait")}" type="button" ${alreadyTapped ? "disabled" : ""}>
+        <span>${alreadyTapped ? "REGISTRERT" : (green ? "TRYKK!" : "GJØR DEG KLAR…")}</span>
+      </button>
+      <p class="reaction-live-note">${alreadyTapped ? `Trykket er registrert. Venter på ${esc(opponent?.name || "motstanderen")}…` : "Vent på grønt signal."}</p>
+    </section>`;
+  }
+
+  if (match.phase === "result") {
+    const iWon = match.lastWinnerId === self.id;
+    return `<section class="card ${iWon ? "winner" : "danger"} reaction-card reaction-result-card">
+      <h2>${iWon ? "⚡ Du vant forsøket!" : "💔 Du tapte forsøket"}</h2>
+      <div class="reaction-times">
+        <div><small>Din reaksjonstid</small><strong>${formatReactionMs(myReaction, myEarly)}</strong></div>
+        <div><small>${esc(opponent?.name || "Motstander")}</small><strong>${formatReactionMs(oppReaction, oppEarly)}</strong></div>
+      </div>
+      <div class="reaction-score"><span>${esc(self.name)} ${reactionHearts(myLives)}</span><b>VS</b><span>${reactionHearts(oppLives)} ${esc(opponent?.name || "")}</span></div>
+      <p>${iWon ? `${esc(opponent?.name || "Motstanderen")} mistet ett liv.` : "Du mistet ett liv."}</p>
+      <button id="reaction-ready" type="button" ${myReady ? "disabled" : ""}>${myReady ? "Klar ✓" : "Klar for neste"}</button>
+      <p class="reaction-ready-status">${myReady ? `Venter på ${esc(opponent?.name || "motstanderen")}…` : "Neste forsøk starter først når begge er klare."}</p>
+    </section>`;
+  }
+
+  return `<section class="card"><h2>⚡ Reaksjonsduell</h2><p>Synkroniserer kampen…</p></section>`;
+}
+
+function reactionHostHtml() {
+  const reaction = state?.meta?.reaction;
+  if (!reaction) return "";
+  const matches = (reaction.matches || []).map(m => {
+    const stateText = m.finished ? "FERDIG" : (m.phase === "armed" ? "REAKSJON" : (m.phase === "result" ? "RESULTAT" : "KLAR"));
+    return `<div class="reaction-host-match"><span>${esc(m.leftName)} ${reactionHearts(m.leftLives)}</span><b>${stateText}</b><span>${reactionHearts(m.rightLives)} ${esc(m.rightName)}</span></div>`;
+  }).join("");
+  const byes = (reaction.byes || []).map(b => `<div class="reaction-host-bye">🎟️ ${esc(b.name)} har frirunde til finalen</div>`).join("");
+  return `<div class="reaction-host-panel"><strong>⚡ Reaksjonsdueller</strong>${matches}${byes}</div>`;
+}
+
+function updateReactionPad() {
+  if (!isReactionRound() || !player?.id) return;
+  const match = reactionMatchFor(player.id);
+  const pad = document.querySelector("#reaction-pad");
+  if (!match || !pad || match.phase !== "armed") return;
+  const side = reactionSide(match, player.id);
+  const attemptKey = `${match.id}:${match.attempt}`;
+  if (attemptKey !== reactionSignalKey) {
+    reactionSignalKey = attemptKey;
+    reactionSignalShownPerf = null;
+  }
+  if (match[`${side}TapAt`] != null) return;
+  const go = Number(match.signalAt || 0) > 0 && serverNowMs() >= Number(match.signalAt);
+  const wasGo = pad.classList.contains("go");
+  if (go && !wasGo) {
+    pad.classList.remove("wait");
+    pad.classList.add("go");
+    const span = pad.querySelector("span");
+    if (span) span.textContent = "TRYKK!";
+  }
+  if (go && !wasGo && reactionSignalShownPerf == null) reactionSignalShownPerf = performance.now();
 }
 
 function resultOverlayHtml() {
@@ -1021,7 +1245,7 @@ function playerPanel() {
           <div id="password-full-preview" class="password-full-preview" aria-live="polite"></div>
           ${walterInlineHtml()}
         </div>
-        ${state.meta.round === 12 ? "" : `<button ${time === 0 || roundIntroActive() || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 17 ? "Lever finalepassord" : "Lever passord"}</button>`}
+        ${state.meta.round === 12 ? "" : `<button ${time === 0 || roundIntroActive() || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 18 ? "Lever finalepassord" : "Lever passord"}</button>`}
       </form>
 
       ${lastSubmit ? `<div class="feedback good">✓ Passordet er lagret. Resultatet vises når runden avsluttes.</div>` : ""}
@@ -1197,6 +1421,10 @@ function hostStatsHtml() {
 
   const status = state?.meta?.status;
 
+  if (isReactionRound()) {
+    return `<div class="card"><div class="eyebrow">REAKSJONSDUELL</div>${reactionHostHtml()}</div>`;
+  }
+
   if (status === "round_open") {
     const active = state.players.filter(p => p.alive);
     const submitted = active.filter(p => p.hasSubmitted).length;
@@ -1309,7 +1537,7 @@ function hostPanel() {
 
   return `<div class="card host">
     <div class="eyebrow">HOST CONTROLS</div>
-    ${meta.status === "round_open" ? `<div class="host-ready-indicator"><strong>${state.players.filter(p => p.alive && p.hasSubmitted).length}/${state.players.filter(p => p.alive).length}</strong><span>har levert</span></div>` : ""}
+    ${meta.status === "round_open" && !isReactionRound() ? `<div class="host-ready-indicator"><strong>${state.players.filter(p => p.alive && p.hasSubmitted).length}/${state.players.filter(p => p.alive).length}</strong><span>har levert</span></div>` : ""}
 
     <label>Host key
       <input id="host-key" type="password" value="${esc(hostKey)}" placeholder="Same as HOST_KEY in Vercel">
@@ -1324,7 +1552,7 @@ function hostPanel() {
         </div>`
       : ""}
 
-    ${meta.status === "round_open"
+    ${meta.status === "round_open" && !isReactionRound()
       ? `<div class="actions"><button data-host-action="close_round">Close round now</button></div>`
       : ""}
 
@@ -1346,17 +1574,17 @@ function hostPanel() {
 }
 
 function hostPreviewHtml() {
-  if (!hostMode || ![15, 16, 17].includes(previewRound)) return "";
+  if (!hostMode || ![15, 16, 18].includes(previewRound)) return "";
 
   if (previewRound === 15) {
     return `<main class="host-preview-shell">
       <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
       <header>
         <div><h1>Regel 15</h1></div>
-        <div class="status-block"><span>Testvisning</span><strong>Round 15/17</strong><small>kun forhåndsvisning</small></div>
+        <div class="status-block"><span>Testvisning</span><strong>Round 15/18</strong><small>kun forhåndsvisning</small></div>
       </header>
       <section class="card rules-card">
-        <div class="card-title"><h2>Regler</h2><span>15/17</span></div>
+        <div class="card-title"><h2>Regler</h2><span>15/18</span></div>
         <ol class="rules preview-rules">
           <li><span>15</span><div>Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Engelske varianter godkjennes også. Når runden avsluttes, går gruppen eller gruppene med flest valg videre; grupper med færre valg blir eliminert. Hvis alle tre er like store, går alle videre.</div></li>
         </ol>
@@ -1376,10 +1604,10 @@ function hostPreviewHtml() {
       <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
       <header>
         <div><h1>Regel 16</h1></div>
-        <div class="status-block"><span>Testvisning</span><strong>Round 16/17</strong><small>kun forhåndsvisning</small></div>
+        <div class="status-block"><span>Testvisning</span><strong>Round 16/18</strong><small>kun forhåndsvisning</small></div>
       </header>
       <section class="card rules-card">
-        <div class="card-title"><h2>Regler</h2><span>16/17</span></div>
+        <div class="card-title"><h2>Regler</h2><span>16/18</span></div>
         <ol class="rules preview-rules">
           <li><span>16</span><div>Siri og Amund lurer på hvor de skal dra på bryllupsreise. Passordet ditt må inneholde navnet på et land som har et flagg med kun to farger.</div></li>
         </ol>
@@ -1390,7 +1618,7 @@ function hostPreviewHtml() {
         <button type="button" disabled>Submit / replace</button>
         <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
       </section>
-      <div class="preview-links"><a href="?host=1&previewRound=15">← Se regel 15</a><a href="?host=1&previewRound=17">Se finalen →</a></div>
+      <div class="preview-links"><a href="?host=1&previewRound=15">← Se regel 15</a><a href="?host=1&previewRound=18">Se finalen →</a></div>
     </main>`;
   }
 
@@ -1398,10 +1626,10 @@ function hostPreviewHtml() {
     <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
     <header>
       <div><h1>Finale</h1></div>
-      <div class="status-block"><span>Testvisning</span><strong>Round 17/17</strong><small>siste revisjon</small></div>
+      <div class="status-block"><span>Testvisning</span><strong>Round 18/18</strong><small>siste revisjon</small></div>
     </header>
     <section class="card rules-card">
-      <div class="card-title"><h2>Finalerunden</h2><span>17/17</span></div>
+      <div class="card-title"><h2>Finalerunden</h2><span>18/18</span></div>
       <div class="final-preview-copy">
         <strong>Siste sjanse til å optimalisere passordet ditt.</strong>
         <p>Passordet må fortsatt oppfylle alle tidligere regler. Når hosten avslutter runden, vinner den eller de som har kortest gyldige passord. Ved lik lengde avgjør flest stjerner. Er det fortsatt likt, deler de seieren.</p>
@@ -1424,7 +1652,7 @@ function hostPreviewHtml() {
 function render() {
   const inputState = captureInputState();
 
-  if (hostMode && [15, 16, 17].includes(previewRound)) {
+  if (hostMode && [15, 16, 18].includes(previewRound)) {
     app.innerHTML = hostPreviewHtml();
     return;
   }
@@ -1460,6 +1688,22 @@ function render() {
       : "Ingen vinner")
     : null;
 
+  if (!hostMode && isReactionRound() && player?.id) {
+    const self = selfState();
+    document.body.classList.add("participant-mode");
+    document.body.classList.remove("host-mode");
+    app.innerHTML = `<main class="reaction-participant-main">
+      ${lastError ? `<div class="notice bad">${esc(lastError)}</div>` : ""}
+      ${reactionIntroHtml()}
+      <div class="reaction-participant-shell">
+        ${self ? reactionViewHtml(self) : `<section class="card"><h2>⚡ Reaksjonsduell</h2><p>Synkroniserer kampen…</p></section>`}
+      </div>
+    </main>`;
+    bindEvents();
+    restoreInputState(inputState);
+    return;
+  }
+
   app.innerHTML = `<main>
     <header>
       <div>
@@ -1471,7 +1715,7 @@ function render() {
         <span>${statusText(meta.status)}</span>
         <strong>${meta.round ? `Runde ${meta.round} av ${state.totalRules}` : `${total} player${total === 1 ? "" : "s"}`}</strong>
         ${meta.status === "round_open"
-          ? `<small id="header-countdown">${time}s left</small>`
+          ? (isReactionRound() ? `<small>Dueller pågår</small>` : `<small id="header-countdown">${time}s left</small>`)
           : `<small>${aliveCount} alive</small>`}
       </div>
     </header>
@@ -1521,6 +1765,74 @@ function render() {
 
 function bindEvents() {
   setupPasswordInputAutoFit();
+
+  document.querySelector("#reaction-ready")?.addEventListener("click", async e => {
+    const button = e.currentTarget;
+    if (button instanceof HTMLButtonElement) { button.disabled = true; button.textContent = "Klar ✓"; }
+    try {
+      const response = await api({ action: "reaction_ready", playerId: player.id, playerToken: player.token });
+      if (response?.state) state = response.state;
+      lastError = "";
+      render();
+    } catch (err) {
+      lastError = err.message;
+      render();
+    }
+  });
+
+  const reactionPad = document.querySelector("#reaction-pad");
+  if (reactionPad) {
+    if (reactionPad.classList.contains("go") && reactionSignalShownPerf == null) {
+      reactionSignalShownPerf = performance.now();
+    }
+    let tapped = false;
+    const tap = async e => {
+      if (tapped) return;
+      tapped = true;
+      e.preventDefault?.();
+      const matchAtTap = reactionMatchFor(player.id);
+      const signalAt = Number(matchAtTap?.signalAt || 0);
+      const isGreenNow = reactionPad.classList.contains("go");
+      let localReactionMs;
+      if (isGreenNow && reactionSignalShownPerf != null) {
+        localReactionMs = Math.max(0, performance.now() - reactionSignalShownPerf);
+      } else {
+        localReactionMs = signalAt ? serverNowMs() - signalAt : -7000;
+      }
+      reactionPad.setAttribute("disabled", "");
+      reactionPad.classList.remove("go", "wait");
+      reactionPad.classList.add("registered");
+      const label = reactionPad.querySelector("span");
+      if (label) label.textContent = "REGISTRERT";
+      const liveNote = document.querySelector(".reaction-live-note");
+      const opponentNow = reactionOpponent(matchAtTap, player.id);
+      if (liveNote) liveNote.textContent = `Trykket er registrert. Venter på ${opponentNow?.name || "motstanderen"}…`;
+      if (navigator.vibrate) navigator.vibrate(35);
+      try {
+        const response = await api({
+          action: "reaction_tap",
+          playerId: player.id,
+          playerToken: player.token,
+          reactionMs: Math.round(localReactionMs)
+        });
+        if (response?.state) state = response.state;
+        lastError = "";
+        render();
+      } catch (err) {
+        tapped = false;
+        lastError = err.message;
+        render();
+      }
+    };
+    if (window.PointerEvent) {
+      reactionPad.addEventListener("pointerdown", tap, { passive: false });
+    } else {
+      reactionPad.addEventListener("touchstart", tap, { passive: false });
+      reactionPad.addEventListener("mousedown", tap);
+    }
+    reactionPad.addEventListener("click", tap);
+    reactionPad.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") tap(e); });
+  }
 
   const nicknameInput = document.querySelector("#nickname-input");
   const teamHint = document.querySelector("#team-hint");
@@ -1852,6 +2164,7 @@ function bindEvents() {
 }
 
 function tick() {
+  updateReactionPad();
   const startOverlay = document.querySelector(".round-start-overlay");
   if (startOverlay && !roundIntroActive()) {
     startOverlay.remove();
@@ -1871,9 +2184,26 @@ function tick() {
   if (s === 0) document.querySelector("#submit-form button")?.setAttribute("disabled", "");
 }
 
+function reactionPollDelay() {
+  if (!isReactionRound() || !player?.id) return 1000;
+  const match = reactionMatchFor(player.id);
+  if (!match) return 500;
+  const side = reactionSide(match, player.id);
+  if (match.finished) return 1200;
+  if (match.phase === "ready" || match.phase === "result") return 300;
+  if (match.phase === "armed") return match[`${side}TapAt`] != null ? 350 : 1400;
+  return 600;
+}
+
+async function reactionRefreshLoop() {
+  if (isReactionRound()) await refresh();
+  setTimeout(reactionRefreshLoop, reactionPollDelay());
+}
+
 refresh();
-polling = setInterval(refresh, 2000);
-setInterval(tick, 250);
+polling = setInterval(() => { if (!isReactionRound()) refresh(); }, 2000);
+setTimeout(reactionRefreshLoop, 250);
+setInterval(tick, 25);
 window.addEventListener("resize", () => {
   const input = document.querySelector("#password-input");
   if (input) fitPasswordInput(input);
