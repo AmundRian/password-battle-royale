@@ -619,6 +619,7 @@ const EGG_ROUND = 10;
 const RPS_ROUND = 12;
 const FLAG_ROUND = 13;
 const REACTION_ROUND = 14;
+const REACTION_HOST_ID = "__reaction_host__";
 const FINAL_ROUND = 15;
 
 function heartsForLives(lives, maxLives = STARTING_LIVES) {
@@ -657,9 +658,6 @@ function reactionMatchFor(playerId, nextState = state) {
   return (nextState?.meta?.reaction?.matches || []).find(m => m.leftId === playerId || m.rightId === playerId) || null;
 }
 
-function reactionByeFor(playerId, nextState = state) {
-  return (nextState?.meta?.reaction?.byes || []).find(b => b.id === playerId) || null;
-}
 
 function reactionOpponent(match, playerId) {
   if (!match) return null;
@@ -710,14 +708,6 @@ function formatReactionMs(value, early = false) {
 }
 
 function reactionViewHtml(self) {
-  const bye = reactionByeFor(self.id);
-  if (bye) {
-    return `<section class="card winner reaction-bye-card">
-      <h2>🎟️ Frirunde</h2>
-      <p>Det var oddetall spillere, og du ble tilfeldig trukket til frirunde. Du er videre til finalerunden.</p>
-      <div class="reaction-final-hearts">${reactionHearts(bye.lives)}</div>
-    </section>`;
-  }
 
   const match = reactionMatchFor(self.id);
   if (!match) return `<section class="card"><h2>⚡ Reaksjonsduell</h2><p>Venter på motstander…</p></section>`;
@@ -797,23 +787,105 @@ function reactionViewHtml(self) {
   return `<section class="card"><h2>⚡ Reaksjonsduell</h2><p>Synkroniserer kampen…</p></section>`;
 }
 
+function reactionHostDuelHtml() {
+  const match = reactionMatchFor(REACTION_HOST_ID);
+  if (!match) return "";
+  const side = reactionSide(match, REACTION_HOST_ID);
+  const otherSide = side === "left" ? "right" : "left";
+  const opponent = reactionOpponent(match, REACTION_HOST_ID);
+  const myLives = Number(match[`${side}Lives`] || 0);
+  const oppLives = Number(match[`${otherSide}Lives`] || 0);
+  const myReady = Boolean(match[`${side}Ready`]);
+  const oppReady = Boolean(match[`${otherSide}Ready`]);
+  const myReaction = match[`${side}ReactionMs`];
+  const oppReaction = match[`${otherSide}ReactionMs`];
+  const myEarly = Boolean(match[`${side}Early`]);
+  const oppEarly = Boolean(match[`${otherSide}Early`]);
+
+  if (match.finished) {
+    const hostWon = match.winnerId === REACTION_HOST_ID;
+    return `<div class="card ${hostWon ? "winner" : "accent"} reaction-card reaction-host-duel-card">
+      <div class="eyebrow">HOST-DUELL</div>
+      <h2>${hostWon ? "🤍 Amund vant duellen" : `🏆 ${esc(opponent?.name || "Deltakeren")} slo HOST`}</h2>
+      <p>${hostWon ? `<strong>${esc(opponent?.name || "Deltakeren")}</strong> er eliminert fra leken av Amund 🤍.` : `<strong>${esc(opponent?.name || "Deltakeren")}</strong> er videre til finalen.`}</p>
+    </div>`;
+  }
+
+  if (match.phase === "ready") {
+    return `<div class="card accent reaction-card reaction-host-duel-card">
+      <div class="eyebrow">HOST-DUELL</div>
+      <div class="reaction-versus">
+        <div><small>HOST</small><strong>Amund 🤍</strong><span>${reactionHearts(myLives)}</span></div>
+        <b>VS</b>
+        <div><small>Motstander</small><strong>${esc(opponent?.name || "—")} ${esc(opponent?.emoji || "")}</strong><span>${reactionHearts(oppLives)}</span></div>
+      </div>
+      <div class="reaction-rules-short"><strong>Når skjermen blir grønn: trykk så raskt du kan.</strong><span>Ikke trykk før. Taperen av hvert forsøk mister ett liv.</span></div>
+      <button id="reaction-ready" type="button" ${myReady ? "disabled" : ""}>${myReady ? "Du er klar ✓" : (Number(match.attempt || 1) > 1 ? "Klar for neste" : "Jeg er klar")}</button>
+      <p class="reaction-ready-status">${myReady ? (oppReady ? "Begge er klare…" : `Venter på ${esc(opponent?.name || "motstanderen")}…`) : (oppReady ? `${esc(opponent?.name || "Motstanderen")} er klar.` : "Begge må trykke klar før forsøket starter.")}</p>
+    </div>`;
+  }
+
+  if (match.phase === "armed") {
+    const green = Number(match.signalAt || 0) > 0 && serverNowMs() >= Number(match.signalAt);
+    const alreadyTapped = match[`${side}TapAt`] != null;
+    return `<div class="card accent reaction-card reaction-live-card reaction-host-duel-card">
+      <div class="eyebrow">HOST-DUELL</div>
+      <div class="reaction-versus compact">
+        <div><strong>Amund 🤍</strong><span>${reactionHearts(myLives)}</span></div>
+        <b>VS</b>
+        <div><strong>${esc(opponent?.name || "—")}</strong><span>${reactionHearts(oppLives)}</span></div>
+      </div>
+      <button id="reaction-pad" class="reaction-pad ${alreadyTapped ? "registered" : (green ? "go" : "wait")}" type="button" ${alreadyTapped ? "disabled" : ""}>
+        <span>${alreadyTapped ? "REGISTRERT" : (green ? "TRYKK!" : "GJØR DEG KLAR…")}</span>
+      </button>
+      <p class="reaction-live-note">${alreadyTapped ? `Trykket er registrert. Venter på ${esc(opponent?.name || "motstanderen")}…` : "Vent på grønt signal."}</p>
+    </div>`;
+  }
+
+  if (match.phase === "result") {
+    const iWon = match.lastWinnerId === REACTION_HOST_ID;
+    return `<div class="card ${iWon ? "winner" : "danger"} reaction-card reaction-result-card reaction-host-duel-card">
+      <div class="eyebrow">HOST-DUELL</div>
+      <h2>${iWon ? "⚡ Du vant forsøket!" : "💔 Du tapte forsøket"}</h2>
+      <div class="reaction-times">
+        <div><small>Amund 🤍</small><strong>${formatReactionMs(myReaction, myEarly)}</strong></div>
+        <div><small>${esc(opponent?.name || "Motstander")}</small><strong>${formatReactionMs(oppReaction, oppEarly)}</strong></div>
+      </div>
+      <div class="reaction-score"><span>Amund 🤍 ${reactionHearts(myLives)}</span><b>VS</b><span>${reactionHearts(oppLives)} ${esc(opponent?.name || "")}</span></div>
+      <p>${iWon ? `${esc(opponent?.name || "Motstanderen")} mistet ett liv.` : "Amund mistet ett liv."}</p>
+      <button id="reaction-ready" type="button" ${myReady ? "disabled" : ""}>${myReady ? "Klar ✓" : "Klar for neste"}</button>
+      <p class="reaction-ready-status">${myReady ? `Venter på ${esc(opponent?.name || "motstanderen")}…` : "Neste forsøk starter først når begge er klare."}</p>
+    </div>`;
+  }
+
+  return "";
+}
+
 function reactionHostHtml() {
   const reaction = state?.meta?.reaction;
   if (!reaction) return "";
   const matches = (reaction.matches || []).map(m => {
     const stateText = m.finished ? "FERDIG" : (m.phase === "armed" ? "REAKSJON" : (m.phase === "result" ? "RESULTAT" : "KLAR"));
-    return `<div class="reaction-host-match"><span>${esc(m.leftName)} ${reactionHearts(m.leftLives)}</span><b>${stateText}</b><span>${reactionHearts(m.rightLives)} ${esc(m.rightName)}</span></div>`;
+    const leftLabel = `${esc(m.leftName)} ${esc(m.leftEmoji || "")}`;
+    const rightLabel = `${esc(m.rightName)} ${esc(m.rightEmoji || "")}`;
+    return `<div class="reaction-host-match"><span>${leftLabel} ${reactionHearts(m.leftLives)}</span><b>${stateText}</b><span>${reactionHearts(m.rightLives)} ${rightLabel}</span></div>`;
   }).join("");
-  const byes = (reaction.byes || []).map(b => `<div class="reaction-host-bye">🎟️ ${esc(b.name)} har frirunde til finalen</div>`).join("");
-  return `<div class="reaction-host-panel"><strong>⚡ Reaksjonsdueller</strong>${matches}${byes}</div>`;
+  const fastest = reaction.fastest;
+  const fastestHtml = fastest
+    ? `<div class="reaction-fastest"><span>⚡ RASKESTE REAKSJON</span><strong>${esc(fastest.name)} · ${Math.round(Number(fastest.ms))} ms</strong></div>`
+    : `<div class="reaction-fastest"><span>⚡ RASKESTE REAKSJON</span><strong>Ingen gyldige trykk ennå</strong></div>`;
+  const completeHtml = reaction.completed ? `<div class="reaction-host-complete">✓ Alle dueller er ferdige</div>` : "";
+  return `<div class="reaction-host-panel"><strong>⚡ Reaksjonsdueller</strong>${fastestHtml}${matches}${completeHtml}</div>`;
 }
 
 function updateReactionPad() {
-  if (!isReactionRound() || !player?.id) return;
-  const match = reactionMatchFor(player.id);
+  if (!isReactionRound()) return;
+  const actorId = hostMode ? REACTION_HOST_ID : player?.id;
+  if (!actorId) return;
+  const match = reactionMatchFor(actorId);
   const pad = document.querySelector("#reaction-pad");
   if (!match || !pad || match.phase !== "armed") return;
-  const side = reactionSide(match, player.id);
+  const side = reactionSide(match, actorId);
   const attemptKey = `${match.id}:${match.attempt}`;
   if (attemptKey !== reactionSignalKey) {
     reactionSignalKey = attemptKey;
@@ -1430,7 +1502,7 @@ function hostStatsHtml() {
   const status = state?.meta?.status;
 
   if (isReactionRound()) {
-    return `<div class="card"><div class="eyebrow">REAKSJONSDUELL</div>${reactionHostHtml()}</div>`;
+    return `${reactionHostDuelHtml()}<div class="card"><div class="eyebrow">REAKSJONSDUELL</div>${reactionHostHtml()}</div>`;
   }
 
   if (status === "round_open") {
@@ -1562,6 +1634,12 @@ function hostPanel() {
 
     ${meta.status === "round_open" && !isReactionRound()
       ? `<div class="actions"><button data-host-action="close_round">Close round now</button></div>`
+      : ""}
+
+    ${meta.status === "round_open" && isReactionRound()
+      ? (meta.reaction?.completed
+        ? `<div class="actions"><button data-host-action="close_reaction">Avslutt reaksjonsrunden</button></div>`
+        : `<div class="actions"><button type="button" disabled>Dueller pågår…</button></div><p class="muted tiny">Knappen aktiveres når alle reaksjonsduellene er ferdige.</p>`)
       : ""}
 
     ${meta.status === "results"
@@ -1733,7 +1811,9 @@ function bindEvents() {
     const button = e.currentTarget;
     if (button instanceof HTMLButtonElement) { button.disabled = true; button.textContent = "Klar ✓"; }
     try {
-      const response = await api({ action: "reaction_ready", playerId: player.id, playerToken: player.token });
+      const response = hostMode
+        ? await api({ action: "reaction_host_ready" })
+        : await api({ action: "reaction_ready", playerId: player.id, playerToken: player.token });
       if (response?.state) state = response.state;
       lastError = "";
       render();
@@ -1753,7 +1833,8 @@ function bindEvents() {
       if (tapped) return;
       tapped = true;
       e.preventDefault?.();
-      const matchAtTap = reactionMatchFor(player.id);
+      const actorId = hostMode ? REACTION_HOST_ID : player?.id;
+      const matchAtTap = reactionMatchFor(actorId);
       const signalAt = Number(matchAtTap?.signalAt || 0);
       const isGreenNow = reactionPad.classList.contains("go");
       let localReactionMs;
@@ -1768,16 +1849,18 @@ function bindEvents() {
       const label = reactionPad.querySelector("span");
       if (label) label.textContent = "REGISTRERT";
       const liveNote = document.querySelector(".reaction-live-note");
-      const opponentNow = reactionOpponent(matchAtTap, player.id);
+      const opponentNow = reactionOpponent(matchAtTap, actorId);
       if (liveNote) liveNote.textContent = `Trykket er registrert. Venter på ${opponentNow?.name || "motstanderen"}…`;
       if (navigator.vibrate) navigator.vibrate(35);
       try {
-        const response = await api({
-          action: "reaction_tap",
-          playerId: player.id,
-          playerToken: player.token,
-          reactionMs: Math.round(localReactionMs)
-        });
+        const response = hostMode
+          ? await api({ action: "reaction_host_tap", reactionMs: Math.round(localReactionMs) })
+          : await api({
+              action: "reaction_tap",
+              playerId: player.id,
+              playerToken: player.token,
+              reactionMs: Math.round(localReactionMs)
+            });
         if (response?.state) state = response.state;
         lastError = "";
         render();
@@ -2148,10 +2231,12 @@ function tick() {
 }
 
 function reactionPollDelay() {
-  if (!isReactionRound() || !player?.id) return 1000;
-  const match = reactionMatchFor(player.id);
-  if (!match) return 500;
-  const side = reactionSide(match, player.id);
+  if (!isReactionRound()) return 1000;
+  const actorId = hostMode ? REACTION_HOST_ID : player?.id;
+  if (!actorId) return 1000;
+  const match = reactionMatchFor(actorId);
+  if (!match) return hostMode ? 500 : 500;
+  const side = reactionSide(match, actorId);
   if (match.finished) return 1200;
   if (match.phase === "ready" || match.phase === "result") return 300;
   if (match.phase === "armed") return match[`${side}TapAt`] != null ? 350 : 1400;

@@ -1725,7 +1725,7 @@ export const RULES = [
   { id: "r_count", text: "Passordet ditt må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet." },
   { id: "rps", text: "Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Engelske varianter godkjennes også. Når runden avsluttes, går gruppen eller gruppene med flest valg videre; grupper med færre valg blir eliminert. Hvis alle tre er like store, går alle videre." },
   { id: "two_color_flag", text: "Siri og Amund lurer på hvor de skal dra på bryllupsreise. Passordet ditt må inneholde navnet på et land som har et flagg med kun to farger." },
-  { id: "reaction", text: "Reaksjonsduell! De gjenværende deltakerne matches tilfeldig to og to. Når skjermen blir grønn, trykk så raskt du kan. Taperen av hvert forsøk mister ett liv. Førstemann til 0 liv er eliminert." },
+  { id: "reaction", text: "Reaksjonsduell! De gjenværende deltakerne matches tilfeldig. Ved oddetall møter én deltaker HOST Amund 🤍. Når skjermen blir grønn, trykk så raskt du kan. Taperen av hvert forsøk mister ett liv. Førstemann til 0 liv er eliminert." },
   { id: "final_revision", text: "Finale! Gjør en siste revisjon av passordet ditt. Når runden avsluttes, vinner det korteste gyldige passordet. Ved lik lengde avgjør flest stjerner; fortsatt likt gir delt seier." }
 ];
 

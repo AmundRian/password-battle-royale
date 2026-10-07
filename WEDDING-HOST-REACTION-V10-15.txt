@@ -1,0 +1,9 @@
+V10.15 – HOST-duell ved oddetall i reaksjonsrunden
+
+- Ved oddetall matches den siste tilfeldig valgte deltakeren mot HOST: Amund 🤍.
+- HOST får samme antall liv som deltakeren.
+- HOST spiller med samme klar/signal/registrert/resultat-flyt som deltakerne.
+- HOST er aldri en vanlig deltaker og kan aldri gå videre til finalen.
+- Deltaker som taper mot HOST får beskjed om at vedkommende er eliminert av Amund 🤍.
+- Raskeste gyldige reaksjonstid blant deltakerne vises på hostskjermen; HOST-tider teller ikke.
+- Reaksjonsrunden avsluttes ikke automatisk. Når alle dueller er ferdige aktiveres knappen «Avslutt reaksjonsrunden» hos HOST.

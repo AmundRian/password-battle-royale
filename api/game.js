@@ -10,6 +10,10 @@ const TIMELINE_ROUND = roundNumber("timeline");
 const WALTER_ROUND = roundNumber("walter");
 const EGG_ROUND = roundNumber("egg");
 const RPS_ROUND = roundNumber("rps");
+const REACTION_ROUND = roundNumber("reaction");
+const REACTION_HOST_ID = "__reaction_host__";
+const REACTION_HOST_NAME = "Amund";
+const REACTION_HOST_EMOJI = "🤍";
 
 function send(res, status, body) {
   res.status(status).json(body);
@@ -183,7 +187,7 @@ function noSubmissionValidation() {
 
 
 const REACTION_EMOJIS = ["🐸","🦆","🐒","🦖","🐔","🦀","🐧","🤡","👽","🐝","🦊","🐙"];
-const REACTION_LOCK_KEY = "pbr-wedding:v10-12:reaction-lock";
+const REACTION_LOCK_KEY = "pbr-wedding:v10-15:reaction-lock";
 
 function shuffled(values) {
   const out = [...values];
@@ -243,8 +247,53 @@ function createReactionState(players) {
       loserId: null
     });
   }
-  const byes = pool.map(p => ({ id: p.id, name: p.name, lives: Math.max(1, Number(p.lives || 1)), emoji: randomReactionEmoji() }));
-  return { matches, byes, createdAt: Date.now() };
+
+  let hostMatchId = null;
+  if (pool.length === 1) {
+    const left = pool.shift();
+    hostMatchId = `reaction-${left.id.slice(0,6)}-host`;
+    const lives = Math.max(1, Number(left.lives || 1));
+    matches.push({
+      id: hostMatchId,
+      leftId: left.id,
+      leftName: left.name,
+      leftEmoji: randomReactionEmoji(),
+      rightId: REACTION_HOST_ID,
+      rightName: REACTION_HOST_NAME,
+      rightEmoji: REACTION_HOST_EMOJI,
+      leftLives: lives,
+      rightLives: lives,
+      attempt: 1,
+      phase: "ready",
+      leftReady: false,
+      rightReady: false,
+      signalAt: null,
+      waitMs: null,
+      leftTapAt: null,
+      rightTapAt: null,
+      leftReactionMs: null,
+      rightReactionMs: null,
+      leftEarly: false,
+      rightEarly: false,
+      resultAt: null,
+      lastWinnerId: null,
+      lastLoserId: null,
+      finished: false,
+      winnerId: null,
+      loserId: null,
+      hostMatch: true
+    });
+  }
+
+  return { matches, hostMatchId, fastest: null, completed: false, createdAt: Date.now() };
+}
+
+function updateFastestReaction(reaction, player, reactionMs, early = false) {
+  const ms = Number(reactionMs);
+  if (!player || player.id === REACTION_HOST_ID || early || !Number.isFinite(ms) || ms < 0) return;
+  if (!reaction.fastest || ms < Number(reaction.fastest.ms)) {
+    reaction.fastest = { playerId: player.id, name: player.name, ms: Math.round(ms) };
+  }
 }
 
 function reactionMatchFor(reaction, playerId) {
@@ -302,20 +351,24 @@ async function finishReactionAttempt(match, playersById, redis) {
 
   const loser = playersById.get(loserId);
   const winner = playersById.get(winnerId);
+  const loserOut = Number(match[`${loserSide}Lives`] || 0) <= 0;
+  if (loserOut) {
+    match.finished = true;
+    match.phase = "finished";
+    match.winnerId = winnerId;
+    match.loserId = loserId;
+  }
   if (loser) {
     loser.lives = match[`${loserSide}Lives`];
-    loser.lostLifeRound = 17;
-    if (loser.lives <= 0) {
+    loser.lostLifeRound = REACTION_ROUND;
+    if (loserOut) {
       loser.alive = false;
       loser.valid = false;
-      loser.eliminatedRound = 17;
-      loser.reason = `Du er eliminert fra leken av ${winner?.name || "motstanderen"}.`;
+      loser.eliminatedRound = REACTION_ROUND;
+      const winnerLabel = winner?.name || [match[`${winnerSide}Name`], match[`${winnerSide}Emoji`]].filter(Boolean).join(" ") || "motstanderen";
+      loser.reason = `Du er eliminert fra leken av ${winnerLabel}.`;
       loser.failures = [loser.reason];
       loser.failureDetails = [{ rule: "Reaksjonsduell", text: loser.reason }];
-      match.finished = true;
-      match.phase = "finished";
-      match.winnerId = winnerId;
-      match.loserId = loserId;
     }
     await savePlayer(loser, redis);
   }
@@ -355,10 +408,10 @@ async function advanceReaction(meta, players, redis) {
     }
   }
 
-  if (reaction.matches.every(m => m.finished)) {
-    const latestPlayers = await getPlayers(redis);
-    meta = await setMeta({ ...meta, reaction, status: "results", deadline: null }, redis);
-    return { meta, players: latestPlayers };
+  if (reaction.matches.every(m => m.finished) && !reaction.completed) {
+    reaction.completed = true;
+    reaction.completedAt = Date.now();
+    changed = true;
   }
   if (changed) meta = await setMeta({ ...meta, reaction }, redis);
   return { meta, players: await getPlayers(redis) };
@@ -705,6 +758,82 @@ export default async function handler(req, res) {
             match[`${side}ReactionMs`] = Math.max(0, now - Number(match.signalAt));
           }
         }
+        updateFastestReaction(reaction, p, match[`${side}ReactionMs`], match[`${side}Early`]);
+        if (match.leftTapAt != null && match.rightTapAt != null) {
+          const byId = new Map(players.map(x => [x.id, x]));
+          await finishReactionAttempt(match, byId, redis);
+        }
+        meta = await setMeta({ ...meta, reaction }, redis);
+        players = await getPlayers(redis);
+        if (reaction.matches.every(m => m.finished)) ({ meta, players } = await advanceReaction(meta, players, redis));
+        return send(res, 200, { ok: true, state: publicState(meta, players) });
+      });
+    }
+
+    if (action === "reaction_host_ready") {
+      assertHostKey(getHostKey(req, body));
+      return await withReactionLock(redis, async () => {
+        meta = await getMeta(redis);
+        let players = await getPlayers(redis);
+        ({ meta, players } = await advanceReaction(meta, players, redis));
+        if (meta.status !== "round_open" || RULES[meta.round - 1]?.id !== "reaction" || !meta.reaction) fail("Reaksjonsrunden er ikke aktiv.", 409);
+        const reaction = { ...meta.reaction, matches: meta.reaction.matches.map(m => ({ ...m })) };
+        const match = reactionMatchFor(reaction, REACTION_HOST_ID);
+        if (!match) fail("HOST har ingen duell i denne runden.", 409);
+        if (match.finished) return send(res, 200, { ok: true, state: publicState(meta, players) });
+        const side = reactionSide(match, REACTION_HOST_ID);
+        if (match.phase === "result") {
+          match[`${side}Ready`] = true;
+          if (match.leftReady && match.rightReady) resetReactionAttempt(match);
+        } else if (match.phase === "ready") {
+          match[`${side}Ready`] = true;
+          if (match.leftReady && match.rightReady) {
+            match.phase = "armed";
+            match.waitMs = randomReactionWaitMs(match.waitMs);
+            match.signalAt = Date.now() + match.waitMs;
+            match.leftTapAt = null;
+            match.rightTapAt = null;
+            match.leftReactionMs = null;
+            match.rightReactionMs = null;
+            match.leftEarly = false;
+            match.rightEarly = false;
+          }
+        }
+        meta = await setMeta({ ...meta, reaction }, redis);
+        return send(res, 200, { ok: true, state: publicState(meta, await getPlayers(redis)) });
+      });
+    }
+
+    if (action === "reaction_host_tap") {
+      assertHostKey(getHostKey(req, body));
+      return await withReactionLock(redis, async () => {
+        meta = await getMeta(redis);
+        let players = await getPlayers(redis);
+        ({ meta, players } = await advanceReaction(meta, players, redis));
+        if (meta.status !== "round_open" || RULES[meta.round - 1]?.id !== "reaction" || !meta.reaction) fail("Reaksjonsrunden er ikke aktiv.", 409);
+        const reaction = { ...meta.reaction, matches: meta.reaction.matches.map(m => ({ ...m })) };
+        const match = reactionMatchFor(reaction, REACTION_HOST_ID);
+        if (!match || match.finished) fail("HOST har ingen aktiv reaksjonsduell.", 409);
+        if (match.phase !== "armed" || !match.signalAt) fail("Begge må være klare før du kan trykke.", 409);
+        const side = reactionSide(match, REACTION_HOST_ID);
+        if (match[`${side}TapAt`] != null) return send(res, 200, { ok: true, state: publicState(meta, players) });
+        const now = Date.now();
+        const clientDelta = Number(body.reactionMs);
+        const useClientTiming = Number.isFinite(clientDelta) && clientDelta >= -7000 && clientDelta <= 5000;
+        if (useClientTiming) {
+          const roundedDelta = Math.round(clientDelta);
+          match[`${side}TapAt`] = Number(match.signalAt) + roundedDelta;
+          match[`${side}Early`] = roundedDelta < 0;
+          match[`${side}ReactionMs`] = roundedDelta < 0 ? null : roundedDelta;
+        } else {
+          match[`${side}TapAt`] = now;
+          if (now < Number(match.signalAt)) {
+            match[`${side}Early`] = true;
+            match[`${side}ReactionMs`] = null;
+          } else {
+            match[`${side}ReactionMs`] = Math.max(0, now - Number(match.signalAt));
+          }
+        }
         if (match.leftTapAt != null && match.rightTapAt != null) {
           const byId = new Map(players.map(x => [x.id, x]));
           await finishReactionAttempt(match, byId, redis);
@@ -718,7 +847,14 @@ export default async function handler(req, res) {
 
     assertHostKey(getHostKey(req, body));
 
-    if (action === "set_timer") {
+    if (action === "close_reaction") {
+      if (meta.status !== "round_open" || RULES[meta.round - 1]?.id !== "reaction" || !meta.reaction) fail("Reaksjonsrunden er ikke aktiv.", 409);
+      let players = await getPlayers(redis);
+      ({ meta, players } = await advanceReaction(meta, players, redis));
+      if (!(meta.reaction?.matches || []).every(m => m.finished)) fail("Alle reaksjonsduellene må være ferdige før runden kan avsluttes.", 409);
+      meta = await setMeta({ ...meta, reaction: { ...meta.reaction, completed: true }, status: "results", deadline: null }, redis);
+
+    } else if (action === "set_timer") {
       if (meta.status !== "lobby") fail("Change the timer before starting the game.", 409);
       const seconds = roundSeconds(body.seconds, meta.roundSeconds || 60);
       meta = await setMeta({ ...meta, roundSeconds: Math.round(seconds) }, redis);

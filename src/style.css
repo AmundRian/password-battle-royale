@@ -1670,3 +1670,11 @@ body.player-theme-marie::before {
   .reaction-versus span { font-size: 1.1rem; }
   .reaction-times { grid-template-columns: 1fr; }
 }
+
+/* V10.15: HOST reaction duel and fastest-reaction summary */
+.reaction-fastest { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 14px; border-radius:14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.10); }
+.reaction-fastest span { font-size:.72rem; letter-spacing:.08em; opacity:.75; }
+.reaction-fastest strong { text-align:right; }
+.reaction-host-complete { padding:11px 13px; border-radius:13px; background:rgba(55,210,125,.13); border:1px solid rgba(92,239,151,.28); font-weight:800; }
+.reaction-host-duel-card { margin-bottom:14px; }
+@media (max-width: 720px) { .reaction-fastest { align-items:flex-start; flex-direction:column; } .reaction-fastest strong { text-align:left; } }
