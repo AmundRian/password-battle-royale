@@ -5,6 +5,11 @@ import {
 } from "./_lib/game.js";
 
 const STARTING_LIVES = 3;
+const roundNumber = id => RULES.findIndex(rule => rule.id === id) + 1;
+const TIMELINE_ROUND = roundNumber("timeline");
+const WALTER_ROUND = roundNumber("walter");
+const EGG_ROUND = roundNumber("egg");
+const RPS_ROUND = roundNumber("rps");
 
 function send(res, status, body) {
   res.status(status).json(body);
@@ -147,19 +152,16 @@ const FAILURE_LABELS = new Map([
   ["Passordet må inneholde minst ett romertall.", "Regel 2.2"],
   ["Passordet må inneholde nøyaktig fem av bokstaven «e».", "Regel 3.1"],
   ["Passordet må inneholde navnet på en europeisk hovedstad.", "Regel 3.2"],
-  ["Passordet må inneholde minst ett kodeord fra NATOs fonetiske alfabet.", "Regel 4"],
-  ["Passordet må inneholde navnet på en karakter fra Marvel-universet.", "Regel 5"],
-  ["Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.", "Regel 6"],
-  ["Passordet må inneholde det hemmelige ordet som låses opp i tidslinjen.", "Regel 7"],
-  ["Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.", "Regel 8"],
-  ["Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.", "Regel 10"],
-  ["Passordet må inneholde navnet på en Pokémon fra de første 151 i Pokédex.", "Regel 11"],
-  ["Passordet må inneholde minst én av de syv siste bokstavene i det norske alfabetet.", "Regel 12"],
-  ["Egget ble ikke stoppet innenfor riktig tidsvindu for et smilende egg.", "Regel 12"],
-  ["Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.", "Regel 13"],
-  ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 14"],
-  ["Passordet må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir».", "Regel 15"],
-  ["Passordet må inneholde navnet på et land som har et flagg med kun to farger.", "Regel 16"]
+  ["Passordet må inneholde navnet på en karakter fra Marvel-universet.", "Regel 4"],
+  ["Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.", "Regel 5"],
+  ["Passordet må inneholde det hemmelige ordet som låses opp i tidslinjen.", "Regel 6"],
+  ["Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.", "Regel 7"],
+  ["Passordet må inneholde navnet på en Pokémon fra de første 151 i Pokédex.", "Regel 9"],
+  ["Passordet må inneholde minst én av de syv siste bokstavene i det norske alfabetet.", "Regel 10"],
+  ["Egget ble ikke stoppet innenfor riktig tidsvindu for et smilende egg.", "Regel 10"],
+  ["Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.", "Regel 11"],
+  ["Passordet må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir».", "Regel 12"],
+  ["Passordet må inneholde navnet på et land som har et flagg med kun to farger.", "Regel 13"]
 ]);
 
 function detailForFailure(text) {
@@ -566,7 +568,7 @@ export default async function handler(req, res) {
 
     if (action === "feed_walter") {
       if (meta.status !== "round_open") fail("Walter kan bare mates mens en runde pågår.", 409);
-      if (meta.round < 9) fail("Walter-regelen har ikke startet ennå.", 409);
+      if (meta.round < WALTER_ROUND) fail("Walter-regelen har ikke startet ennå.", 409);
       if (meta.deadline && Date.now() > meta.deadline) fail("Tiden er ute for denne runden.", 409);
 
       const player = await getPlayer(body.playerId, redis);
@@ -591,7 +593,7 @@ export default async function handler(req, res) {
     }
 
     if (action === "solve_timeline") {
-      if (meta.status !== "round_open" || meta.round !== 7) fail("Tidslinjen kan bare løses i runde 7.", 409);
+      if (meta.status !== "round_open" || meta.round !== TIMELINE_ROUND) fail(`Tidslinjen kan bare løses i runde ${TIMELINE_ROUND}.`, 409);
       if (meta.deadline && Date.now() > meta.deadline) fail("Tiden er ute for denne runden.", 409);
       const player = await getPlayer(body.playerId, redis);
       if (!player || player.token !== body.playerToken) fail("Player session not found. Rejoin after the next reset.", 401);
@@ -617,10 +619,10 @@ export default async function handler(req, res) {
 
       // Deliberately do NOT tell the player whether the password passes yet.
       // Validation happens when the host closes the round.
-      if (meta.round === 12) {
+      if (meta.round === EGG_ROUND) {
         const eggSeconds = Number(body.eggSeconds);
         if (!Number.isFinite(eggSeconds) || eggSeconds < 0 || eggSeconds > 60) {
-          fail("Du må koke egget og stoppe timeren før du kan levere i runde 12.", 409);
+          fail(`Du må koke egget og stoppe timeren før du kan levere i runde ${EGG_ROUND}.`, 409);
         }
         player.eggSeconds = Math.round(eggSeconds * 100) / 100;
       }
@@ -800,24 +802,24 @@ export default async function handler(req, res) {
         const validation = validationById.get(p.id) || noSubmissionValidation();
         const failureDetails = (validation.failures || []).map(detailForFailure);
 
-        if (meta.round === 7 && !p.timelineSolved) {
+        if (meta.round === TIMELINE_ROUND && !p.timelineSolved) {
           failureDetails.push({
-            rule: "Regel 7",
-            text: "Du må løse tidslinjen før passordet kan godkjennes i runde 7."
+            rule: `Regel ${TIMELINE_ROUND}`,
+            text: `Du må løse tidslinjen før passordet kan godkjennes i runde ${TIMELINE_ROUND}.`
           });
         }
 
-        if (meta.round === 12) {
+        if (meta.round === EGG_ROUND) {
           const eggSeconds = Number(p.eggSeconds);
           if (!Number.isFinite(eggSeconds) || eggSeconds < 6 || eggSeconds > 8) {
             failureDetails.push({
-              rule: "Regel 12",
+              rule: `Regel ${EGG_ROUND}`,
               text: "Egget ble ikke stoppet innenfor riktig tidsvindu for et smilende egg."
             });
           }
         }
 
-        if (meta.round >= 9) {
+        if (meta.round >= WALTER_ROUND) {
           const fedBeforeFinalSubmission = Boolean(
             p.walterFeedRound === meta.round &&
             Number(p.walterFeedCount || 0) >= 1 &&
@@ -827,7 +829,7 @@ export default async function handler(req, res) {
           );
           if (!fedBeforeFinalSubmission) {
             failureDetails.push({
-              rule: "Regel 9",
+              rule: `Regel ${WALTER_ROUND}`,
               text: "Du glemte å mate Walter før du leverte passordet denne runden."
             });
           }
@@ -856,10 +858,10 @@ export default async function handler(req, res) {
         }
       }
 
-      // Regel 15: Stein–saks–papir avgjøres som en gruppeavstemning bare i denne runden.
+      // Stein–saks–papir avgjøres som en gruppeavstemning bare i introduksjonsrunden.
       // Selve ordkravet er kumulativt i senere runder, men gruppeutfallet beregnes ikke på nytt.
       let rpsSummary = null;
-      if (meta.round === 15) {
+      if (meta.round === RPS_ROUND) {
         const counts = { stein: 0, saks: 0, papir: 0 };
         const choiceById = new Map();
 
@@ -886,7 +888,7 @@ export default async function handler(req, res) {
 
             const leaderText = leaders.map(rpsChoiceLabel).join(" og ");
             failures.push({
-              rule: "Regel 15",
+              rule: `Regel ${RPS_ROUND}`,
               text: `Du valgte ${rpsChoiceLabel(choice)}. ${leaderText} hadde flest valg denne runden.`
             });
           }
@@ -1004,7 +1006,7 @@ export default async function handler(req, res) {
           p.walterFeedCount = 0;
           p.walterFirstFedAt = null;
           // Behold gjenværende liv mellom rundene.
-          // Når finalen (runde 18) starter, går alle finalister over til sudden death.
+          // Når finalen starter, går alle finalister over til sudden death.
           if (meta.round + 1 >= RULES.length) p.lives = 1;
           p.lostLifeRound = null;
           await savePlayer(p, redis);

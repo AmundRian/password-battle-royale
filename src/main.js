@@ -371,7 +371,7 @@ function stopEggTimer() {
 function resetEggTimer() { saveEggState(null); render(); }
 
 function eggHtml() {
-  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 12 || !selfState()?.alive) return "";
+  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== EGG_ROUND || !selfState()?.alive) return "";
   const egg = getEggState();
   const elapsed = eggElapsedMs();
   const stopped = egg && Number.isFinite(egg.stoppedElapsedMs);
@@ -612,6 +612,14 @@ function starsHtml(stars) {
 }
 
 const STARTING_LIVES = 3;
+const TIMELINE_ROUND = 6;
+const WALTER_ROUND = 8;
+const POKEMON_ROUND = 9;
+const EGG_ROUND = 10;
+const RPS_ROUND = 12;
+const FLAG_ROUND = 13;
+const REACTION_ROUND = 14;
+const FINAL_ROUND = 15;
 
 function heartsForLives(lives, maxLives = STARTING_LIVES) {
   const safeMax = Math.max(1, Number(maxLives || STARTING_LIVES));
@@ -1033,7 +1041,7 @@ function walterRoundEightRuleHtml() {
 }
 
 function walterInlineHtml() {
-  if (hostMode || state?.meta?.status !== "round_open" || (state?.meta?.round || 0) < 10) return "";
+  if (hostMode || state?.meta?.status !== "round_open" || (state?.meta?.round || 0) <= WALTER_ROUND) return "";
   const { self, count } = walterFeedState();
   if (!self?.alive) return "";
   const status = count > 0 ? `Walter er matet ${walterBonesHtml(count)}` : "";
@@ -1067,18 +1075,18 @@ function rulesHtml() {
       ? animalRuleImagesHtml()
       : (r.id === "meeting_year" ? meetingRuleImagesHtml() : "");
 
-    // The timeline mini-game is only interactive in round 7.
-    const timeline = r.id === "timeline" && currentRound === 7
+    // The timeline mini-game is only interactive in its introduction round.
+    const timeline = r.id === "timeline" && currentRound === TIMELINE_ROUND
       ? timelineRuleHtml()
       : "";
 
-    const timelineText = r.id === "timeline" && currentRound > 7
-      ? "Passordet ditt må fortsatt inneholde det hemmelige ordet du låste opp i regel 7."
+    const timelineText = r.id === "timeline" && currentRound > TIMELINE_ROUND
+      ? `Passordet ditt må fortsatt inneholde det hemmelige ordet du låste opp i regel ${TIMELINE_ROUND}.`
       : r.text;
 
     // Walter's large rule card is shown in his introduction round.
     // From later rounds the small Walter control sits by the password field.
-    const walter = r.id === "walter" && currentRound === 9
+    const walter = r.id === "walter" && currentRound === WALTER_ROUND
       ? walterRoundEightRuleHtml()
       : "";
 
@@ -1227,8 +1235,8 @@ function playerPanel() {
       </div>
 
       <form id="submit-form">
-        ${state.meta.round === 12 ? eggHtml() : ""}
-        <div class="password-entry-row ${state.meta.round >= 10 ? "with-walter" : ""}">
+        ${state.meta.round === EGG_ROUND ? eggHtml() : ""}
+        <div class="password-entry-row ${state.meta.round > WALTER_ROUND ? "with-walter" : ""}">
           <label>Password
             <input
               id="password-input"
@@ -1245,7 +1253,7 @@ function playerPanel() {
           <div id="password-full-preview" class="password-full-preview" aria-live="polite"></div>
           ${walterInlineHtml()}
         </div>
-        ${state.meta.round === 12 ? "" : `<button ${time === 0 || roundIntroActive() || (state.meta.round === 7 && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === 18 ? "Lever finalepassord" : "Lever passord"}</button>`}
+        ${state.meta.round === EGG_ROUND ? "" : `<button ${time === 0 || roundIntroActive() || (state.meta.round === TIMELINE_ROUND && !self.timelineSolved) ? "disabled" : ""}>${state.meta.round === FINAL_ROUND ? "Lever finalepassord" : "Lever passord"}</button>`}
       </form>
 
       ${lastSubmit ? `<div class="feedback good">✓ Passordet er lagret. Resultatet vises når runden avsluttes.</div>` : ""}
@@ -1428,7 +1436,7 @@ function hostStatsHtml() {
   if (status === "round_open") {
     const active = state.players.filter(p => p.alive);
     const submitted = active.filter(p => p.hasSubmitted).length;
-    const walterFed = state.meta.round >= 9
+    const walterFed = state.meta.round >= WALTER_ROUND
       ? active.filter(p => p.walterFeedRound === state.meta.round && Number(p.walterFeedCount || 0) > 0).length
       : null;
 
@@ -1574,85 +1582,40 @@ function hostPanel() {
 }
 
 function hostPreviewHtml() {
-  if (!hostMode || ![15, 16, 18].includes(previewRound)) return "";
+  if (!hostMode || ![RPS_ROUND, FLAG_ROUND, FINAL_ROUND].includes(previewRound)) return "";
 
-  if (previewRound === 15) {
-    return `<main class="host-preview-shell">
-      <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
-      <header>
-        <div><h1>Regel 15</h1></div>
-        <div class="status-block"><span>Testvisning</span><strong>Round 15/18</strong><small>kun forhåndsvisning</small></div>
-      </header>
-      <section class="card rules-card">
-        <div class="card-title"><h2>Regler</h2><span>15/18</span></div>
-        <ol class="rules preview-rules">
-          <li><span>15</span><div>Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Engelske varianter godkjennes også. Når runden avsluttes, går gruppen eller gruppene med flest valg videre; grupper med færre valg blir eliminert. Hvis alle tre er like store, går alle videre.</div></li>
-        </ol>
-      </section>
-      <section class="card accent play-card">
-        <div class="submit-head"><h2>Submit your password</h2><div class="countdown">60s</div></div>
-        <label>Password<input class="password-input" value="" readonly></label>
-        <button type="button" disabled>Submit / replace</button>
-        <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
-      </section>
-      <div class="preview-links"><a href="?host=1&previewRound=16">Se regel 16 →</a><a href="?host=1">← Til vanlig host-side</a></div>
-    </main>`;
-  }
-
-  if (previewRound === 16) {
-    return `<main class="host-preview-shell">
-      <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
-      <header>
-        <div><h1>Regel 16</h1></div>
-        <div class="status-block"><span>Testvisning</span><strong>Round 16/18</strong><small>kun forhåndsvisning</small></div>
-      </header>
-      <section class="card rules-card">
-        <div class="card-title"><h2>Regler</h2><span>16/18</span></div>
-        <ol class="rules preview-rules">
-          <li><span>16</span><div>Siri og Amund lurer på hvor de skal dra på bryllupsreise. Passordet ditt må inneholde navnet på et land som har et flagg med kun to farger.</div></li>
-        </ol>
-      </section>
-      <section class="card accent play-card">
-        <div class="submit-head"><h2>Submit your password</h2><div class="countdown">60s</div></div>
-        <label>Password<input class="password-input" value="" readonly></label>
-        <button type="button" disabled>Submit / replace</button>
-        <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
-      </section>
-      <div class="preview-links"><a href="?host=1&previewRound=15">← Se regel 15</a><a href="?host=1&previewRound=18">Se finalen →</a></div>
-    </main>`;
-  }
-
+  const rule = state?.rules?.[previewRound - 1] || null;
+  const fallbackRules = {
+    [RPS_ROUND]: "Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Engelske varianter godkjennes også.",
+    [FLAG_ROUND]: "Siri og Amund lurer på hvor de skal dra på bryllupsreise. Passordet ditt må inneholde navnet på et land som har et flagg med kun to farger.",
+    [FINAL_ROUND]: "Finale! Gjør en siste revisjon av passordet ditt."
+  };
+  const title = previewRound === FINAL_ROUND ? "Finale" : `Regel ${previewRound}`;
+  const body = rule?.text || fallbackRules[previewRound] || "";
   return `<main class="host-preview-shell">
     <div class="host-preview-banner">TESTVISNING · PÅVIRKER IKKE SPILLET</div>
     <header>
-      <div><h1>Finale</h1></div>
-      <div class="status-block"><span>Testvisning</span><strong>Round 18/18</strong><small>siste revisjon</small></div>
+      <div><h1>${title}</h1></div>
+      <div class="status-block"><span>Testvisning</span><strong>Round ${previewRound}/${FINAL_ROUND}</strong><small>kun forhåndsvisning</small></div>
     </header>
     <section class="card rules-card">
-      <div class="card-title"><h2>Finalerunden</h2><span>18/18</span></div>
-      <div class="final-preview-copy">
-        <strong>Siste sjanse til å optimalisere passordet ditt.</strong>
-        <p>Passordet må fortsatt oppfylle alle tidligere regler. Når hosten avslutter runden, vinner den eller de som har kortest gyldige passord. Ved lik lengde avgjør flest stjerner. Er det fortsatt likt, deler de seieren.</p>
-      </div>
+      <div class="card-title"><h2>${previewRound === FINAL_ROUND ? "Finalerunden" : "Regler"}</h2><span>${previewRound}/${FINAL_ROUND}</span></div>
+      <div class="final-preview-copy"><strong>${esc(body)}</strong>${previewRound === FINAL_ROUND ? "<p>Passordet må fortsatt oppfylle alle tidligere regler. Kortest gyldige passord vinner; ved lik lengde avgjør flest stjerner.</p>" : ""}</div>
     </section>
     <section class="card accent play-card">
-      <div class="submit-head"><h2>Siste revisjon</h2><div class="countdown">60s</div></div>
+      <div class="submit-head"><h2>${previewRound === FINAL_ROUND ? "Siste revisjon" : "Submit your password"}</h2><div class="countdown">60s</div></div>
       <label>Password<input class="password-input" value="" readonly></label>
-      <button type="button" disabled>Lever finalepassord</button>
+      <button type="button" disabled>${previewRound === FINAL_ROUND ? "Lever finalepassord" : "Submit / replace"}</button>
       <p class="muted tiny">Dette er bare en visuell test. Ingen data sendes eller lagres.</p>
     </section>
-    <section class="card preview-awards">
-      <div class="preview-award">🏆 <div><small>Vinneren av</small><strong>Passordet til Siris hjerte</strong></div></div>
-      <div class="preview-award">⭐ <div><small>Egen sluttkåring</small><strong>THE SHORT KING</strong></div></div>
-    </section>
-    <div class="preview-links"><a href="?host=1&previewRound=16">← Se regel 16</a><a href="?host=1">Til vanlig host-side →</a></div>
+    <div class="preview-links"><a href="?host=1">← Til vanlig host-side</a></div>
   </main>`;
 }
 
 function render() {
   const inputState = captureInputState();
 
-  if (hostMode && [15, 16, 18].includes(previewRound)) {
+  if (hostMode && [RPS_ROUND, FLAG_ROUND, FINAL_ROUND].includes(previewRound)) {
     app.innerHTML = hostPreviewHtml();
     return;
   }
@@ -2082,7 +2045,7 @@ function bindEvents() {
     const password = String(new FormData(e.currentTarget).get("password") || "");
 
     try {
-      if (state?.meta?.round === 12) throw new Error("I runde 12 leverer du ved å koke egget og velge «Jeg stopper tiden her – lever passord».");
+      if (state?.meta?.round === EGG_ROUND) throw new Error(`I runde ${EGG_ROUND} leverer du ved å koke egget og velge «Jeg stopper tiden her – lever passord».`);
       lastSubmit = await api({
         action: "submit",
         playerId: player.id,

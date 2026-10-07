@@ -1,0 +1,29 @@
+V10.13 – bryllupsleken redusert fra 18 til 15 runder.
+
+Fjernet helt fra aktiv regelrekkefølge og passordvalidering:
+- NATO-fonetisk alfabet
+- Låttittel av The Beatles / Queen / The Killers
+- Partallskrav for summen av sifre
+
+Ny rundeplassering:
+1 Gjest
+2 Stor bokstav + tall + romertall
+3 Fem e-er + europeisk hovedstad
+4 Marvel
+5 Dyr
+6 Tidslinje
+7 Året de møttes
+8 Walter
+9 Pokémon
+10 Egg + siste syv bokstaver
+11 Antall r-er / sluttall
+12 Stein–saks–papir
+13 Tofarget flagg
+14 Reaksjonsduell
+15 Siste revisjon / finale
+
+Tekniske kontroller:
+- Spesialrunder er flyttet til nye rundenumre på server og klient.
+- Passordvalidering bruker aktive regel-ID-er, så fjernede regler kan ikke bli hengende igjen kumulativt.
+- Reaksjonsduellen identifiseres fortsatt via regel-ID og beholder V10.12-mekanikken.
+- Finalen er fortsatt sudden death og starter etter reaksjonsduellen.

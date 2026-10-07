@@ -1715,16 +1715,13 @@ export const RULES = [
   { id: "guest", text: "Passordet ditt må inneholde fornavnet på en gjest i bryllupet." },
   { id: "round2", text: "Passordet ditt må inneholde minst én stor bokstav og ett tall, og minst ett romertall." },
   { id: "round3", text: "Passordet ditt må inneholde nøyaktig fem av bokstaven «e», og navnet på en europeisk hovedstad." },
-  { id: "nato", text: "Passordet ditt må inneholde minst ett kodeord fra NATOs fonetiske alfabet." },
   { id: "round5", text: "Passordet ditt må inneholde navnet på en karakter fra Marvel-universet. Engelske og norske navn godkjennes." },
   { id: "animals", text: "Passordet ditt må inneholde navnet på minst ett av dyrene som vises på bildene. Norske og engelske navn godkjennes." },
   { id: "timeline", text: "Sett de seks hendelsene i riktig rekkefølge på tidslinjen og trykk «Sjekk tidslinje». Når du løser den, låses et hemmelig ord opp. Passordet ditt må inneholde dette ordet." },
   { id: "meeting_year", text: "Passordet ditt må inneholde årstallet da personene på bildene møtte hverandre for første gang." },
   { id: "walter", text: "Fra og med denne runden må du mate Walter minst én gang i HVER runde før du sender inn passordet ditt. Trykk på Walter for å mate ham. Glemmer du å mate Walter i en senere runde, blir passordet ditt ikke godkjent." },
-  { id: "song", text: "Passordet ditt må inneholde navnet på en låt av The Beatles, Queen eller The Killers." },
   { id: "pokemon", text: "Passordet ditt må inneholde navnet på en Pokémon fra de første 151 i Pokédex." },
   { id: "egg", text: "Kok et smilende egg. I tillegg må passordet ditt inneholde minst én av de syv siste bokstavene i det norske alfabetet." },
-  { id: "digit_sum_even", text: "Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11." },
   { id: "r_count", text: "Passordet ditt må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet." },
   { id: "rps", text: "Passordet ditt må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir». Engelske varianter godkjennes også. Når runden avsluttes, går gruppen eller gruppene med flest valg videre; grupper med færre valg blir eliminert. Hvis alle tre er like store, går alle videre." },
   { id: "two_color_flag", text: "Siri og Amund lurer på hvor de skal dra på bryllupsreise. Passordet ditt må inneholde navnet på et land som har et flagg med kun to farger." },
@@ -1894,14 +1891,15 @@ export async function savePlayer(player, redis = redisClient()) {
 
 export function validatePassword(password, round, options = {}) {
   const maxRound = Math.max(0, Math.min(Number(round) || 0, RULES.length));
+  const activeRuleIds = new Set(RULES.slice(0, maxRound).map(rule => rule.id));
   const failures = [];
   const p = String(password ?? "");
 
-  if (maxRound >= 1 && !containsGuestName(p)) {
+  if (activeRuleIds.has("guest") && !containsGuestName(p)) {
     failures.push("Passordet må inneholde fornavnet på en gjest i bryllupet.");
   }
 
-  if (maxRound >= 2) {
+  if (activeRuleIds.has("round2")) {
     if (!(hasUppercaseLetter(p) && /\d/.test(p))) {
       failures.push("Passordet må inneholde minst én stor bokstav og ett tall.");
     }
@@ -1910,7 +1908,7 @@ export function validatePassword(password, round, options = {}) {
     }
   }
 
-  if (maxRound >= 3) {
+  if (activeRuleIds.has("round3")) {
     if (countPlainE(p) !== 5) {
       failures.push("Passordet må inneholde nøyaktig fem av bokstaven «e».");
     }
@@ -1919,58 +1917,46 @@ export function validatePassword(password, round, options = {}) {
     }
   }
 
-  if (maxRound >= 4 && !containsAnyLoose(p, NATO_WORDS)) {
-    failures.push("Passordet må inneholde minst ett kodeord fra NATOs fonetiske alfabet.");
-  }
-
-  if (maxRound >= 5 && !hasMarvelCharacter(p)) {
+  if (activeRuleIds.has("round5") && !hasMarvelCharacter(p)) {
     failures.push("Passordet må inneholde navnet på en karakter fra Marvel-universet.");
   }
 
-  if (maxRound >= 6 && !containsAnyLoose(p, PICTURE_ANIMALS)) {
+  if (activeRuleIds.has("animals") && !containsAnyLoose(p, PICTURE_ANIMALS)) {
     failures.push("Passordet må inneholde navnet på minst ett av dyrene som vises på bildene.");
   }
 
-  if (maxRound >= 7 && !containsAnyLoose(p, [TIMELINE_SECRET])) {
+  if (activeRuleIds.has("timeline") && !containsAnyLoose(p, [TIMELINE_SECRET])) {
     failures.push("Passordet må inneholde det hemmelige ordet som låses opp i tidslinjen.");
   }
 
-  if (maxRound >= 8 && !p.includes("2018")) {
+  if (activeRuleIds.has("meeting_year") && !p.includes("2018")) {
     failures.push("Passordet må inneholde årstallet da personene på bildene møtte hverandre for første gang.");
   }
 
-  // Regel 9 (Walter) valideres server-side mot spillerens mater-status for runden.
+  // Walter valideres server-side mot spillerens mater-status for hver aktiv runde.
 
-  if (maxRound >= 10 && !containsAnyLoose(p, SONG_TITLES)) {
-    failures.push("Passordet må inneholde navnet på en låt av The Beatles, Queen eller The Killers.");
-  }
-
-  if (maxRound >= 11 && !containsAnyLoose(p, GEN1_POKEMON)) {
+  if (activeRuleIds.has("pokemon") && !containsAnyLoose(p, GEN1_POKEMON)) {
     failures.push("Passordet må inneholde navnet på en Pokémon fra de første 151 i Pokédex.");
   }
 
-  if (maxRound >= 12 && !hasLastSevenNorwegianLetter(p)) {
+  if (activeRuleIds.has("egg") && !hasLastSevenNorwegianLetter(p)) {
     failures.push("Passordet må inneholde minst én av de syv siste bokstavene i det norske alfabetet.");
   }
 
-  if (maxRound >= 13 && !digitSumIsEven(p)) {
-    failures.push("Summen av alle sifrene i passordet ditt må være et partall. Hvert siffer adderes separat – for eksempel gir 2018 summen 2 + 0 + 1 + 8 = 11.");
-  }
-
-  if (maxRound >= 14 && !rCountMatchesEnding(p)) {
+  if (activeRuleIds.has("r_count") && !rCountMatchesEnding(p)) {
     failures.push("Passordet må avsluttes med et tall som tilsvarer antall bokstaver «r» i passordet.");
   }
 
-  if (maxRound >= 15 && !getRpsChoice(p)) {
+  if (activeRuleIds.has("rps") && !getRpsChoice(p)) {
     failures.push("Passordet må inneholde nøyaktig ett av ordene «stein», «saks» eller «papir».");
   }
 
-  if (maxRound >= 16 && !containsAnyLoose(p, TWO_COLOR_FLAG_COUNTRIES)) {
+  if (activeRuleIds.has("two_color_flag") && !containsAnyLoose(p, TWO_COLOR_FLAG_COUNTRIES)) {
     failures.push("Passordet må inneholde navnet på et land som har et flagg med kun to farger.");
   }
 
-  // Regel 17 er reaksjonsduellen og legger ikke til en ny passordregel.
-  // Regel 18 er ren finalerevisjon. Ingen ny innholdsregel legges til.
+  // Reaksjonsduellen legger ikke til en ny passordregel.
+  // Finalerevisjonen legger heller ikke til en ny innholdsregel.
 
   return { valid: failures.length === 0, failures };
 }
