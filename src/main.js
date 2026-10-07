@@ -572,7 +572,7 @@ function saveTimelineOrderFromDom() {
 }
 
 function timelineRuleHtml() {
-  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 7) return "";
+  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== TIMELINE_ROUND) return "";
   const self = selfState();
   if (!self?.alive) return "";
   if (self.timelineSolved) {
@@ -1024,10 +1024,10 @@ function walterFeedState() {
   return { self, count };
 }
 
-// Runde 9 bruker den kompakte Walter-presentasjonen.
-// Fra og med runde 10 vises Walter kompakt under passordfeltet.
+// Walter introduseres i WALTER_ROUND med den kompakte presentasjonen.
+// Fra og med neste runde vises Walter kompakt under passordfeltet.
 function walterRoundEightRuleHtml() {
-  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== 9) return "";
+  if (hostMode || state?.meta?.status !== "round_open" || state?.meta?.round !== WALTER_ROUND) return "";
   const { self, count } = walterFeedState();
   if (!self?.alive) return "";
   const status = count > 0 ? `Walter er matet ${walterBonesHtml(count)}` : "";

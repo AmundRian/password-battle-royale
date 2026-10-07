@@ -1,0 +1,5 @@
+V10.14 hotfix
+
+- Tidslinje-minispillet bruker nå TIMELINE_ROUND i stedet for gammelt hardkodet rundenummer 7.
+- Walter-introduksjonen bruker nå WALTER_ROUND i stedet for gammelt hardkodet rundenummer 9.
+- Ingen spillregler eller øvrig funksjonalitet er endret.
